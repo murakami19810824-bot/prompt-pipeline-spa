@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Refinement Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;1,500&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════
+   DESIGN TOKENS
+   ══════════════════════════════════════════════ */
+:root {
+  --ink: #1a1a2e;
+  --ink-2: #2d2d44;
+  --ink-3: #6b6b8a;
+  --ink-4: #9b9bb5;
+  --surface: #0f0f1a;
+  --surface-card: rgba(255,255,255,.06);
+  --surface-card-hover: rgba(255,255,255,.1);
+  --glass-border: rgba(255,255,255,.12);
+  --glass-border-focus: rgba(255,255,255,.3);
+  --glass-bg: rgba(255,255,255,.05);
+  --accent-1: #6366f1;
+  --accent-2: #8b5cf6;
+  --accent-3: #a78bfa;
+  --accent-gradient: linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa);
+  --accent-glow: rgba(99,102,241,.25);
+  --warm: #f59e0b;
+  --warm-bg: rgba(245,158,11,.08);
+  --warm-border: rgba(245,158,11,.25);
+  --danger: #ef4444;
+  --danger-bg: rgba(239,68,68,.08);
+  --danger-border: rgba(239,68,68,.25);
+  --success: #10b981;
+  --success-bg: rgba(16,185,129,.08);
+  --success-border: rgba(16,185,129,.3);
+  --text: #e8e8f0;
+  --text-2: #b0b0c8;
+  --text-3: #7a7a98;
+  --radius: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --shadow-glass: 0 8px 32px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.06);
+  --shadow-glow: 0 0 40px var(--accent-glow);
+  --transition: .25s cubic-bezier(.4,0,.2,1);
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'Outfit', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--surface);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+/* ── Ambient Background ─────────────────────── */
+.bg-layer {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  overflow: hidden;
+}
+.bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: .35;
+  animation: orbFloat 20s ease-in-out infinite alternate;
+}
+.bg-orb-1 { width: 600px; height: 600px; background: #6366f1; top: -15%; left: -10%; animation-delay: 0s; }
+.bg-orb-2 { width: 500px; height: 500px; background: #8b5cf6; bottom: -10%; right: -8%; animation-delay: -7s; }
+.bg-orb-3 { width: 350px; height: 350px; background: #a78bfa; top: 40%; left: 50%; animation-delay: -14s; }
+@keyframes orbFloat {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(30px, -20px) scale(1.05); }
+  66%  { transform: translate(-20px, 15px) scale(.95); }
+  100% { transform: translate(10px, -10px) scale(1.02); }
+}
+.bg-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+.bg-noise {
+  position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+/* ── Page Layout ────────────────────────────── */
+.page-wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px 20px 100px;
+}
+
+/* ── Header ─────────────────────────────────── */
+.site-header {
+  text-align: center;
+  margin-bottom: 48px;
+  padding: 32px 0 40px;
+  animation: fadeInDown .6s ease;
+}
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.site-header .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--accent-3);
+  margin-bottom: 16px;
+}
+.eyebrow-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent-1);
+  animation: pulse 2s ease infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+.site-header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 5vw, 40px);
+  font-weight: 500;
+  line-height: 1.15;
+  color: #fff;
+  margin-bottom: 12px;
+}
+.site-header h1 em {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-style: italic;
+}
+.site-header p {
+  color: var(--text-3);
+  font-size: 15px;
+  font-weight: 300;
+}
+
+/* ── Progress ────────────────────────────────── */
+.progress-wrap {
+  margin-bottom: 36px;
+  animation: fadeInDown .6s ease .1s both;
+}
+.progress-track {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.p-step { display: flex; align-items: center; flex: 1; }
+.p-step:last-child { flex: none; }
+.p-dot {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: all .4s cubic-bezier(.34,1.56,.64,1);
+}
+.p-dot.active {
+  border-color: var(--accent-1);
+  background: var(--accent-gradient);
+  color: #fff;
+  box-shadow: 0 0 20px var(--accent-glow);
+  transform: scale(1.1);
+}
+.p-dot.done {
+  border-color: var(--success);
+  background: var(--success);
+  color: #fff;
+}
+.p-line {
+  flex: 1;
+  height: 2px;
+  background: var(--glass-border);
+  margin: 0 6px;
+  border-radius: 1px;
+  transition: background .4s;
+  position: relative;
+  overflow: hidden;
+}
+.p-line.filled { background: var(--accent-1); }
+.p-line.filled::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent);
+  animation: shimmer 2s ease infinite;
+}
+@keyframes shimmer { 0%{transform:translateX(-100%);} 100%{transform:translateX(100%);} }
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+}
+.progress-labels span { font-size: 11px; color: var(--text-3); letter-spacing: .04em; }
+
+/* ── Glass Card ──────────────────────────────── */
+.card {
+  background: var(--surface-card);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: 40px;
+  box-shadow: var(--shadow-glass);
+  animation: cardEnter .5s cubic-bezier(.4,0,.2,1);
+}
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(20px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.card-eyebrow {
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent-3);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.card-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 500;
+  color: #fff;
+  margin-bottom: 8px;
+  line-height: 1.25;
+}
+.card-desc {
+  color: var(--text-3);
+  font-size: 14px;
+  margin-bottom: 32px;
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+/* ── Section Label ───────────────────────────── */
+.section-divider {
+  border: none;
+  border-top: 1px solid var(--glass-border);
+  margin: 32px 0;
+}
+.section-label {
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--accent-3);
+  margin-bottom: 22px;
+  margin-top: 32px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-label::before {
+  content: '';
+  width: 16px; height: 1px;
+  background: var(--accent-gradient);
+}
+
+/* ── Fields ──────────────────────────────────── */
+.field { margin-bottom: 24px; }
+.field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  margin-bottom: 8px;
+}
+.field label .req { color: var(--accent-3); margin-left: 3px; }
+.field label .hint { font-weight: 300; color: var(--text-3); font-size: 12px; margin-left: 6px; }
+
+select, input[type="text"], textarea {
+  width: 100%;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  font-family: var(--font-body);
+  transition: all var(--transition);
+  appearance: none;
+  -webkit-appearance: none;
+}
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239b9bb5' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 40px;
+  cursor: pointer;
+}
+select option { background: #1a1a2e; color: var(--text); }
+select:focus, input[type="text"]:focus, textarea:focus {
+  outline: none;
+  border-color: var(--accent-1);
+  box-shadow: 0 0 0 3px var(--accent-glow), var(--shadow-glow);
+  background: rgba(255,255,255,.08);
+}
+textarea { min-height: 100px; resize: vertical; line-height: 1.7; }
+
+/* ── Checkbox Grid ───────────────────────────── */
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+}
+.check-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-size: 13px;
+  color: var(--text-2);
+  background: var(--glass-bg);
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+.check-item::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--accent-gradient);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.check-item:hover { border-color: var(--accent-1); transform: translateY(-1px); }
+.check-item.checked {
+  border-color: var(--accent-1);
+  color: #fff;
+  font-weight: 500;
+}
+.check-item.checked::before { opacity: .2; }
+.check-item input { display: none; }
+.check-box {
+  width: 16px; height: 16px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: .5;
+  position: relative; z-index: 1;
+  transition: all var(--transition);
+}
+.check-item.checked .check-box { opacity: 1; border-color: var(--accent-3); }
+.check-box::after {
+  content: ''; display: none;
+  width: 8px; height: 5px;
+  border-left: 1.5px solid var(--accent-3);
+  border-bottom: 1.5px solid var(--accent-3);
+  transform: rotate(-45deg) translate(1px,-1px);
+}
+.check-item.checked .check-box::after { display: block; }
+.check-item span { position: relative; z-index: 1; }
+
+/* hidden items animate out */
+.check-item.filter-hidden {
+  opacity: 0;
+  transform: scale(.9);
+  pointer-events: none;
+  max-height: 0;
+  padding: 0 14px;
+  margin: 0;
+  border-color: transparent;
+  overflow: hidden;
+  transition: all .3s ease;
+}
+
+/* ── Radio Group ─────────────────────────────── */
+.radio-list { display: flex; flex-direction: column; gap: 8px; }
+.radio-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-size: 14px;
+  color: var(--text-2);
+  background: var(--glass-bg);
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+.radio-item::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--accent-gradient);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.radio-item:hover { border-color: var(--accent-1); transform: translateX(4px); }
+.radio-item.selected {
+  border-color: var(--accent-1);
+  color: #fff;
+  font-weight: 500;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+.radio-item.selected::before { opacity: .15; }
+.radio-ring {
+  width: 18px; height: 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; z-index: 1;
+  transition: all var(--transition);
+}
+.radio-ring::after {
+  content: ''; width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent-3);
+  display: none;
+  transition: transform .2s;
+}
+.radio-item.selected .radio-ring::after { display: block; animation: popIn .3s ease; }
+@keyframes popIn { from{transform:scale(0);} to{transform:scale(1);} }
+.radio-item span { position: relative; z-index: 1; }
+
+/* ── Buttons ─────────────────────────────────── */
+.btn-row { display: flex; gap: 12px; margin-top: 32px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 13px 28px;
+  border-radius: var(--radius);
+  font-size: 14px; font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer; border: none;
+  transition: all var(--transition);
+  letter-spacing: .02em;
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary {
+  background: var(--accent-gradient);
+  color: #fff; flex: 1;
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px var(--accent-glow);
+}
+.btn-primary:active { transform: translateY(0); }
+.btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.btn-primary::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,.15) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform .5s;
+}
+.btn-primary:hover::after { transform: translateX(100%); }
+.btn-ghost {
+  background: var(--glass-bg);
+  color: var(--text-2);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(8px);
+}
+.btn-ghost:hover { background: var(--surface-card-hover); border-color: var(--glass-border-focus); }
+.btn-success {
+  background: var(--success);
+  color: #fff; flex: 1;
+  box-shadow: 0 4px 16px rgba(16,185,129,.25);
+}
+.btn-success:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(16,185,129,.3); }
+.btn-outline {
+  background: transparent;
+  color: var(--accent-3);
+  border: 1.5px solid var(--accent-1);
+  flex: 1;
+}
+.btn-outline:hover {
+  background: var(--accent-1);
+  color: #fff;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+/* ── Alert ───────────────────────────────────── */
+.alert {
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+.alert-warn {
+  background: var(--warm-bg);
+  border: 1px solid var(--warm-border);
+  color: #fbbf24;
+}
+.alert-warn strong {
+  display: block; margin-bottom: 8px;
+  font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+}
+.alert-warn li { padding: 4px 0; list-style: none; }
+.alert-warn li::before { content: '⚠ '; }
+
+/* ── Confirm Panel ───────────────────────────── */
+.confirm-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.cp-header {
+  padding: 14px 22px;
+  background: rgba(255,255,255,.03);
+  border-bottom: 1px solid var(--glass-border);
+  font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--accent-3);
+  font-weight: 500;
+}
+.confirm-row {
+  display: flex; gap: 16px;
+  padding: 12px 22px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  align-items: baseline;
+  transition: background .2s;
+}
+.confirm-row:hover { background: rgba(255,255,255,.02); }
+.confirm-row:last-child { border-bottom: none; }
+.confirm-row dt { font-size: 11px; color: var(--text-3); min-width: 96px; font-weight: 500; letter-spacing: .04em; }
+.confirm-row dd { font-size: 13px; color: var(--text-2); }
+.chip {
+  display: inline-block; padding: 3px 10px;
+  border-radius: 6px; font-size: 11px; font-weight: 500;
+  background: rgba(99,102,241,.15);
+  color: var(--accent-3);
+  border: 1px solid rgba(99,102,241,.2);
+  margin: 2px;
+}
+
+/* ── Loading ─────────────────────────────────── */
+.loading-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 64px 20px; gap: 24px;
+}
+.loader-ring {
+  width: 48px; height: 48px;
+  border: 2px solid var(--glass-border);
+  border-top-color: var(--accent-1);
+  border-right-color: var(--accent-2);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-state p { font-size: 14px; color: var(--text-3); font-weight: 300; }
+
+/* ── Output Block ────────────────────────────── */
+.output-block {
+  background: rgba(0,0,0,.4);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 24px;
+  font-family: 'Courier New', monospace;
+  font-size: 12.5px;
+  line-height: 1.85;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 460px;
+  overflow-y: auto;
+  margin-bottom: 14px;
+  color: var(--text);
+}
+.output-block::-webkit-scrollbar { width: 6px; }
+.output-block::-webkit-scrollbar-track { background: transparent; }
+.output-block::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 3px; }
+.output-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.iter-tag {
+  font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent-3);
+  padding: 5px 14px;
+  border: 1px solid rgba(99,102,241,.2);
+  border-radius: 8px;
+  background: rgba(99,102,241,.08);
+  font-weight: 500;
+}
+.copy-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  background: var(--glass-bg); color: var(--text-3);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  font-size: 12px; cursor: pointer;
+  font-family: var(--font-body);
+  transition: all var(--transition);
+}
+.copy-btn:hover { border-color: var(--accent-1); color: var(--accent-3); }
+.copy-btn.copied {
+  background: var(--success); border-color: var(--success);
+  color: #fff;
+}
+
+/* ── Error ───────────────────────────────────── */
+.error-msg {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  color: #fca5a5;
+  font-size: 13px;
+  margin-bottom: 16px;
+  animation: shake .4s ease;
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);}
+}
+
+/* ── Done ────────────────────────────────────── */
+.done-wrap { text-align: center; padding: 12px 0 28px; }
+.done-mark {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--success);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+  color: #fff; font-size: 22px;
+  box-shadow: 0 0 30px rgba(16,185,129,.3);
+  animation: popIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+.done-title {
+  font-family: var(--font-display);
+  font-size: 28px; font-weight: 500;
+  margin-bottom: 10px; color: #fff;
+}
+.done-sub { color: var(--text-3); font-size: 14px; font-weight: 300; margin-bottom: 28px; }
+
+/* ── Help Button & Modal ──────────────────── */
+.help-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-3);
+  font-size: 10px; font-weight: 600;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all var(--transition);
+  vertical-align: middle;
+  line-height: 1;
+  font-family: var(--font-body);
+}
+.help-btn:hover {
+  border-color: var(--accent-1);
+  color: var(--accent-3);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+.help-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: fadeIn .2s ease;
+}
+@keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+.help-modal {
+  background: rgba(30,30,50,.95);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  max-width: 520px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-glass);
+  animation: cardEnter .3s ease;
+}
+.help-modal h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: #fff;
+  margin-bottom: 8px;
+}
+.help-modal .help-why {
+  font-size: 13px;
+  color: var(--accent-3);
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+.help-modal p {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.8;
+  margin-bottom: 12px;
+}
+.help-modal .help-example {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.7;
+  margin: 12px 0;
+}
+.help-modal .help-example strong { color: var(--text-2); font-weight: 500; }
+.help-close {
+  display: block;
+  margin: 20px auto 0;
+  padding: 8px 32px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-2);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all var(--transition);
+}
+.help-close:hover { border-color: var(--accent-1); color: var(--accent-3); }
+
+/* ── Utility ─────────────────────────────────── */
+.hidden { display: none !important; }
+.mt-sm { margin-top: 14px; }
+
+/* ── Responsive ──────────────────────────────── */
+@media (max-width: 600px) {
+  .card { padding: 28px 20px; border-radius: var(--radius-lg); }
+  .check-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .btn-row { flex-direction: column; }
+  .btn { width: 100%; }
+  .confirm-row { flex-direction: column; gap: 4px; }
+  .confirm-row dt { min-width: unset; }
+}
+</style>
+</head>
+<body>
+
+<!-- Ambient BG -->
+<div class="bg-layer">
+  <div class="bg-orb bg-orb-1"></div>
+  <div class="bg-orb bg-orb-2"></div>
+  <div class="bg-orb bg-orb-3"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-noise"></div>
+</div>
+
+<div class="page-wrap">
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="eyebrow"><span class="eyebrow-dot"></span>AI Prompt Generator</div>
+    <h1>Prompt Refinement<br><em>Pipeline</em></h1>
+    <p>用途・目的・対象を入力するだけで、高精度なAIプロンプトを自動生成します</p>
+  </header>
+
+  <!-- Progress -->
+  <div class="progress-wrap">
+    <div class="progress-track">
+      <div class="p-step"><div class="p-dot active" id="dot1">1</div><div class="p-line" id="line1"></div></div>
+      <div class="p-step"><div class="p-dot" id="dot2">2</div><div class="p-line" id="line2"></div></div>
+      <div class="p-step"><div class="p-dot" id="dot3">3</div><div class="p-line" id="line3"></div></div>
+      <div class="p-dot" id="dot4">4</div>
+    </div>
+    <div class="progress-labels"><span>基本情報</span><span>内容確認</span><span>詳細回答</span><span>完成</span></div>
+  </div>
+
+  <!-- ===== SCREEN: Phase 1 ===== -->
+  <div id="screen-phase1" class="card">
+    <div class="card-eyebrow">Step 01</div>
+    <div class="card-title">基本情報の入力</div>
+    <div class="card-desc">生成したいプロンプトの概要を入力してください。AIがあなたの意図を読み取り、最適な質問を自動生成します。</div>
+
+    <div class="section-label">必須項目</div>
+
+    <div class="field">
+      <label>A. 作成カテゴリ <span class="req">*</span><button class="help-btn" onclick="showHelp('A')">?</button></label>
+      <select id="field-A" onchange="filterPlatforms()">
+        <option value="">選択してください</option>
+        <option value="Text content (blog, report, email, proposal, script)">テキストコンテンツ（ブログ・レポート・メール・企画書・脚本）</option>
+        <option value="Image generation prompt">画像生成プロンプト</option>
+        <option value="Video generation prompt">動画生成プロンプト</option>
+        <option value="Music / Audio generation prompt">音楽・音声生成プロンプト</option>
+        <option value="Application / Web tool">アプリケーション・Webツール</option>
+        <option value="Automation workflow">自動化ワークフロー</option>
+        <option value="Research / Analysis">リサーチ・分析</option>
+        <option value="Code / Technical implementation">コード・技術実装</option>
+        <option value="Translation / Rewriting">翻訳・リライト</option>
+        <option value="Business document (pitch deck, plan, strategy)">ビジネス文書（ピッチデック・計画書・戦略書）</option>
+        <option value="Education / Training material">教育・研修教材</option>
+        <option value="Other">その他</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>B. 使用するAIツール <span class="req">*</span><span class="hint">複数選択可</span><button class="help-btn" onclick="showHelp('B')">?</button></label>
+      <div id="b-filter-notice" class="hidden" style="font-size:12px;color:var(--accent-3);margin-bottom:8px;font-weight:300;">
+        カテゴリに適したツールを表示しています
+      </div>
+      <div class="check-grid" id="field-B">
+        <label class="check-item" data-tags="text,code,research,biz,edu,app,auto,translate,other" onclick="toggleCheck(this)"><input type="checkbox" value="ChatGPT (GPT-4o / o1 / o3)"><div class="check-box"></div><span>ChatGPT</span></label>
+        <label class="check-item" data-tags="text,code,research,biz,edu,app,auto,translate,other" onclick="toggleCheck(this)"><input type="checkbox" value="Claude (Anthropic)"><div class="check-box"></div><span>Claude</span></label>
+        <label class="check-item" data-tags="text,code,research,biz,edu,app,auto,translate,other" onclick="toggleCheck(this)"><input type="checkbox" value="Gemini (Google)"><div class="check-box"></div><span>Gemini</span></label>
+        <label class="check-item" data-tags="text,research,other" onclick="toggleCheck(this)"><input type="checkbox" value="Perplexity"><div class="check-box"></div><span>Perplexity</span></label>
+        <label class="check-item" data-tags="text,code,research,other" onclick="toggleCheck(this)"><input type="checkbox" value="Google AI Studio"><div class="check-box"></div><span>AI Studio</span></label>
+        <label class="check-item" data-tags="code,app,other" onclick="toggleCheck(this)"><input type="checkbox" value="Cursor"><div class="check-box"></div><span>Cursor</span></label>
+        <label class="check-item" data-tags="code,app,other" onclick="toggleCheck(this)"><input type="checkbox" value="GitHub Copilot"><div class="check-box"></div><span>GitHub Copilot</span></label>
+        <label class="check-item" data-tags="image,other" onclick="toggleCheck(this)"><input type="checkbox" value="Midjourney"><div class="check-box"></div><span>Midjourney</span></label>
+        <label class="check-item" data-tags="image,other" onclick="toggleCheck(this)"><input type="checkbox" value="DALL-E (OpenAI)"><div class="check-box"></div><span>DALL-E</span></label>
+        <label class="check-item" data-tags="image,other" onclick="toggleCheck(this)"><input type="checkbox" value="Stable Diffusion"><div class="check-box"></div><span>Stable Diffusion</span></label>
+        <label class="check-item" data-tags="image,other" onclick="toggleCheck(this)"><input type="checkbox" value="Adobe Firefly"><div class="check-box"></div><span>Adobe Firefly</span></label>
+        <label class="check-item" data-tags="image,other" onclick="toggleCheck(this)"><input type="checkbox" value="Flux"><div class="check-box"></div><span>Flux</span></label>
+        <label class="check-item" data-tags="video,other" onclick="toggleCheck(this)"><input type="checkbox" value="Sora (OpenAI)"><div class="check-box"></div><span>Sora</span></label>
+        <label class="check-item" data-tags="video,other" onclick="toggleCheck(this)"><input type="checkbox" value="Runway"><div class="check-box"></div><span>Runway</span></label>
+        <label class="check-item" data-tags="video,other" onclick="toggleCheck(this)"><input type="checkbox" value="Kling"><div class="check-box"></div><span>Kling</span></label>
+        <label class="check-item" data-tags="video,other" onclick="toggleCheck(this)"><input type="checkbox" value="Veo (Google)"><div class="check-box"></div><span>Veo</span></label>
+        <label class="check-item" data-tags="music,other" onclick="toggleCheck(this)"><input type="checkbox" value="Suno"><div class="check-box"></div><span>Suno</span></label>
+        <label class="check-item" data-tags="music,other" onclick="toggleCheck(this)"><input type="checkbox" value="Udio"><div class="check-box"></div><span>Udio</span></label>
+        <label class="check-item" data-tags="auto,other" onclick="toggleCheck(this)"><input type="checkbox" value="n8n"><div class="check-box"></div><span>n8n</span></label>
+        <label class="check-item" data-tags="auto,other" onclick="toggleCheck(this)"><input type="checkbox" value="Make (Integromat)"><div class="check-box"></div><span>Make</span></label>
+        <label class="check-item" data-tags="auto,other" onclick="toggleCheck(this)"><input type="checkbox" value="Zapier"><div class="check-box"></div><span>Zapier</span></label>
+        <label class="check-item" data-tags="auto,code,other" onclick="toggleCheck(this)"><input type="checkbox" value="Dify"><div class="check-box"></div><span>Dify</span></label>
+        <label class="check-item" data-tags="text,image,video,music,code,research,biz,edu,app,auto,translate,other" onclick="toggleCheck(this)"><input type="checkbox" value="Not decided / Need recommendation"><div class="check-box"></div><span>未定・相談したい</span></label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>C. AIツールの使用経験 <span class="req">*</span><button class="help-btn" onclick="showHelp('C')">?</button></label>
+      <select id="field-C">
+        <option value="">選択してください</option>
+        <option value="First time using AI tools">AIツールを使うのは初めて</option>
+        <option value="Use AI chat sometimes but not for work">AIチャットを時々使うが業務では使っていない</option>
+        <option value="Use AI tools regularly for work">業務でAIツールを定期的に活用している</option>
+        <option value="Build automations or simple apps with AI">AIを使った自動化や簡単なアプリを構築している</option>
+        <option value="Professional developer / engineer">プロフェッショナルなデベロッパー・エンジニア</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>D. 出力言語 <span class="req">*</span><button class="help-btn" onclick="showHelp('D')">?</button></label>
+      <select id="field-D">
+        <option value="">選択してください</option>
+        <option value="Japanese">日本語</option>
+        <option value="English">英語</option>
+        <option value="Chinese">中国語</option>
+        <option value="Korean">韓国語</option>
+        <option value="Spanish">スペイン語</option>
+        <option value="Other">その他</option>
+      </select>
+    </div>
+
+    <hr class="section-divider">
+    <div class="section-label">プロンプトの詳細（任意）</div>
+
+    <div class="field">
+      <label>E1. 役割・立場 <button class="help-btn" onclick="showHelp('E1')">?</button></label>
+      <input type="text" id="field-E1" placeholder="最大50文字" maxlength="50">
+    </div>
+    <div class="field">
+      <label>E2. 実行したいこと <button class="help-btn" onclick="showHelp('E2')">?</button></label>
+      <input type="text" id="field-E2" placeholder="最大50文字" maxlength="50">
+    </div>
+    <div class="field">
+      <label>E3. 目的・ゴール <button class="help-btn" onclick="showHelp('E3')">?</button></label>
+      <input type="text" id="field-E3" placeholder="最大50文字" maxlength="50">
+    </div>
+    <div class="field">
+      <label>E4. 想定する受け手 <button class="help-btn" onclick="showHelp('E4')">?</button></label>
+      <input type="text" id="field-E4" placeholder="最大50文字" maxlength="50">
+    </div>
+    <div class="field">
+      <label>E5. 補足・背景情報 <button class="help-btn" onclick="showHelp('E5')">?</button></label>
+      <textarea id="field-E5" placeholder="自由に記入できます（最大200文字）" maxlength="200" style="min-height:72px;"></textarea>
+    </div>
+
+    <hr class="section-divider">
+    <div class="section-label">出力スタイルの設定（任意）</div>
+
+    <div class="field">
+      <label>F1. トーン・文体 <span class="hint">複数選択可</span></label>
+      <div class="check-grid" id="field-F-tone">
+        <label class="check-item" onclick="toggleCheck(this)"><input type="checkbox" value="Formal"><div class="check-box"></div><span>フォーマル</span></label>
+        <label class="check-item" onclick="toggleCheck(this)"><input type="checkbox" value="Casual / Friendly"><div class="check-box"></div><span>カジュアル</span></label>
+        <label class="check-item" onclick="toggleCheck(this)"><input type="checkbox" value="Professional"><div class="check-box"></div><span>プロフェッショナル</span></label>
+        <label class="check-item" onclick="toggleCheck(this)"><input type="checkbox" value="Creative / Playful"><div class="check-box"></div><span>クリエイティブ</span></label>
+        <label class="check-item" onclick="toggleCheck(this)"><input type="checkbox" value="Persuasive"><div class="check-box"></div><span>説得力重視</span></label>
+        <label class="check-item" onclick="toggleCheck(this)"><input type="checkbox" value="Educational"><div class="check-box"></div><span>教育的・解説調</span></label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>F2. 専門用語の使用レベル</label>
+      <select id="field-F-jargon">
+        <option value="">指定なし</option>
+        <option value="No technical jargon - plain language only">専門用語なし（平易な言葉のみ）</option>
+        <option value="Minimal jargon - explain terms when used">専門用語は最小限（使う場合は説明を加える）</option>
+        <option value="Moderate use of industry terms">業界用語を適度に使用</option>
+        <option value="Heavy use of technical / professional terminology">専門用語・技術用語を積極的に使用</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>F3. 文字数・長さの目安</label>
+      <select id="field-F-length">
+        <option value="">指定なし</option>
+        <option value="Very short - under 100 words">非常に短い（100語以内）</option>
+        <option value="Short - 100 to 300 words">短め（100〜300語）</option>
+        <option value="Medium - 300 to 600 words">中程度（300〜600語）</option>
+        <option value="Long - 600 to 1200 words">長め（600〜1200語）</option>
+        <option value="Very long - over 1200 words">長文（1200語以上）</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>F4. 出力形式</label>
+      <select id="field-F-format">
+        <option value="">指定なし</option>
+        <option value="Plain prose / paragraphs">プレーンテキスト（段落形式）</option>
+        <option value="Bullet points / lists">箇条書き・リスト形式</option>
+        <option value="Numbered steps">番号付きステップ形式</option>
+        <option value="Table / comparison format">テーブル・比較表形式</option>
+        <option value="Markdown formatted">Markdown形式</option>
+        <option value="Code with comments">コード＋コメント形式</option>
+      </select>
+    </div>
+
+    <hr class="section-divider">
+    <div class="section-label">出力イメージ・制約（任意）</div>
+
+    <div class="field">
+      <label>E6. 出力イメージ・参考例 <button class="help-btn" onclick="showHelp('E6')">?</button></label>
+      <textarea id="field-E6" placeholder="例：Apple風の短くてインパクトのあるコピー、浮世絵風の金箔テクスチャ" maxlength="200" style="min-height:72px;"></textarea>
+    </div>
+    <div class="field">
+      <label>E7. 避けたいこと・NG条件 <button class="help-btn" onclick="showHelp('E7')">?</button></label>
+      <textarea id="field-E7" placeholder="例：競合ブランドに似た配色は避ける、子供向けなので暴力的表現はNG" maxlength="200" style="min-height:72px;"></textarea>
+    </div>
+
+    <div id="error-phase1" class="error-msg hidden"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitPhase1()">次へ進む</button>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN: Warning ===== -->
+  <div id="screen-warning" class="card hidden">
+    <div class="card-eyebrow">確認事項</div>
+    <div class="card-title">選択内容の確認</div>
+    <div class="card-desc">選択したカテゴリとツールの組み合わせに不一致が検出されました。</div>
+    <div class="alert alert-warn" id="warning-list"></div>
+    <p style="font-size:13px;color:var(--text-3);margin-bottom:24px;">このまま続けることもできます。</p>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="backToPhase1()">選択を修正する</button>
+      <button class="btn btn-primary" onclick="continueFromWarning()">このまま続ける</button>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN: Confirm ===== -->
+  <div id="screen-confirm" class="card hidden">
+    <div class="card-eyebrow">Step 02</div>
+    <div class="card-title">入力内容の確認</div>
+    <div class="card-desc">以下の内容でプロンプト生成を開始します。</div>
+    <div class="confirm-panel" id="confirm-content"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="backToPhase1()">修正する</button>
+      <button class="btn btn-primary" onclick="confirmAndGenerate()">生成を開始する</button>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN: Loading ===== -->
+  <div id="screen-loading" class="card hidden">
+    <div class="loading-state">
+      <div class="loader-ring"></div>
+      <p id="loading-msg">AIが質問を生成中...</p>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN: Q&A ===== -->
+  <div id="screen-questions" class="card hidden">
+    <div class="card-eyebrow">Step 03</div>
+    <div class="card-title" id="qa-title">詳細情報の入力</div>
+    <div class="card-desc" id="qa-desc">以下の質問に回答することで、より精度の高いプロンプトが生成されます。</div>
+    <div id="qa-fields"></div>
+    <div id="error-qa" class="error-msg hidden"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="submitAnswers()">プロンプトを生成する</button>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN: Output ===== -->
+  <div id="screen-output" class="card hidden">
+    <div class="card-eyebrow">生成結果</div>
+    <div class="card-title">プロンプトが生成されました</div>
+    <div class="output-meta">
+      <div class="iter-tag" id="iter-badge">Iteration 1</div>
+      <button class="copy-btn" id="copy-btn" onclick="copyPrompt()">📋 コピー</button>
+    </div>
+    <pre class="output-block" id="prompt-output"></pre>
+    <div class="field mt-sm">
+      <label>追加情報・修正依頼 <span class="hint">（任意）さらに改善したい点を入力してください</span></label>
+      <textarea id="field-additional" placeholder="例：ブランド名は〇〇です。価格帯は3,000円前後で、ターゲットは30代の会社員です。"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-outline" onclick="refineMore()">さらに改善する</button>
+      <button class="btn btn-success" onclick="finishPrompt()">これで完成</button>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN: Done ===== -->
+  <div id="screen-done" class="card hidden">
+    <div class="done-wrap">
+      <div class="done-mark">✓</div>
+      <div class="done-title">プロンプト完成</div>
+      <div class="done-sub">コピーしてAIツールに貼り付けてください。</div>
+    </div>
+    <pre class="output-block" id="done-output"></pre>
+    <button class="copy-btn" id="done-copy-btn" onclick="copyDone()">📋 コピー</button>
+    <div class="btn-row" style="margin-top:20px;">
+      <button class="btn btn-ghost" onclick="startOver()" style="flex:1">最初からやり直す</button>
+    </div>
+  </div>
+
+
+  <!-- Help Modal -->
+  <div id="help-overlay" class="help-overlay hidden" onclick="closeHelp(event)">
+    <div class="help-modal" id="help-modal-content" onclick="event.stopPropagation()">
+    </div>
+  </div>
+</div>
+
+<script>
+const N8N_BASE       = 'https://n8n.srv1443093.hstgr.cloud';
+const WEBHOOK_PHASE1 = N8N_BASE + '/webhook/prompt-pipeline-phase1';
+const WEBHOOK_PHASE2 = N8N_BASE + '/webhook/prompt-pipeline-phase2';
+const WEBHOOK_REFINE = N8N_BASE + '/webhook/prompt-pipeline-refine';
+
+let state = { phase1Data: {}, session: null, prompt: '', questions: [], iteration: 0 };
+
+// ══════════════════════════════════════════════
+//  A → B FILTERING
+// ══════════════════════════════════════════════
+const CATEGORY_TAG_MAP = {
+  'Text content': 'text',
+  'Image generation': 'image',
+  'Video generation': 'video',
+  'Music / Audio': 'music',
+  'Application / Web': 'app',
+  'Automation workflow': 'auto',
+  'Research / Analysis': 'research',
+  'Code / Technical': 'code',
+  'Translation / Rewriting': 'translate',
+  'Business document': 'biz',
+  'Education / Training': 'edu',
+  'Other': 'other'
+};
+
+function filterPlatforms() {
+  const aVal = document.getElementById('field-A').value;
+  const notice = document.getElementById('b-filter-notice');
+  const items = document.querySelectorAll('#field-B .check-item');
+
+  // Find matching tag
+  let tag = '';
+  for (const [key, t] of Object.entries(CATEGORY_TAG_MAP)) {
+    if (aVal.toLowerCase().includes(key.toLowerCase())) { tag = t; break; }
+  }
+
+  if (!tag || tag === 'other') {
+    // Show all
+    items.forEach(el => {
+      el.classList.remove('filter-hidden');
+      el.style.display = '';
+    });
+    notice.classList.add('hidden');
+    return;
+  }
+
+  notice.classList.remove('hidden');
+  items.forEach(el => {
+    const tags = (el.dataset.tags || '').split(',');
+    if (tags.includes(tag) || tags.includes('other')) {
+      el.classList.remove('filter-hidden');
+      el.style.display = '';
+    } else {
+      // Uncheck if hidden
+      const cb = el.querySelector('input[type="checkbox"]');
+      if (cb.checked) { cb.checked = false; el.classList.remove('checked'); }
+      el.classList.add('filter-hidden');
+      // After transition, hide completely
+      setTimeout(() => { if (el.classList.contains('filter-hidden')) el.style.display = 'none'; }, 300);
+    }
+  });
+}
+
+// ══════════════════════════════════════════════
+//  PROGRESS
+// ══════════════════════════════════════════════
+function setProgress(step) {
+  for (let i = 1; i <= 4; i++) {
+    const d = document.getElementById('dot' + i);
+    d.className = 'p-dot' + (i < step ? ' done' : i === step ? ' active' : '');
+    d.textContent = i < step ? '✓' : String(i);
+  }
+  for (let i = 1; i <= 3; i++) {
+    const l = document.getElementById('line' + i);
+    if (l) l.className = 'p-line' + (i < step ? ' filled' : '');
+  }
+}
+
+function showScreen(id) {
+  ['screen-phase1','screen-warning','screen-confirm','screen-loading','screen-questions','screen-output','screen-done']
+    .forEach(s => document.getElementById(s).classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ══════════════════════════════════════════════
+//  CHECKBOX / RADIO
+// ══════════════════════════════════════════════
+function toggleCheck(label) {
+  const cb = label.querySelector('input[type="checkbox"]');
+  cb.checked = !cb.checked;
+  label.classList.toggle('checked', cb.checked);
+}
+function getChecked(id) {
+  return Array.from(document.querySelectorAll('#' + id + ' input[type="checkbox"]:checked')).map(c => c.value);
+}
+
+// ══════════════════════════════════════════════
+//  PHASE 1 SUBMIT
+// ══════════════════════════════════════════════
+function submitPhase1() {
+  const A = document.getElementById('field-A').value;
+  const B = getChecked('field-B');
+  const C = document.getElementById('field-C').value;
+  const D = document.getElementById('field-D').value;
+  const err = document.getElementById('error-phase1');
+  if (!A || B.length === 0 || !C || !D) {
+    err.textContent = 'A・B・C・Dはすべて必須項目です。';
+    err.classList.remove('hidden'); return;
+  }
+  err.classList.add('hidden');
+  state.phase1Data = {
+    A, B, C, D,
+    E1: document.getElementById('field-E1').value,
+    E2: document.getElementById('field-E2').value,
+    E3: document.getElementById('field-E3').value,
+    E4: document.getElementById('field-E4').value,
+    E5: document.getElementById('field-E5').value,
+    E6: document.getElementById('field-E6').value,
+    E7: document.getElementById('field-E7').value,
+    F_tone:   getChecked('field-F-tone'),
+    F_jargon: document.getElementById('field-F-jargon').value,
+    F_length: document.getElementById('field-F-length').value,
+    F_format: document.getElementById('field-F-format').value,
+    G: []
+  };
+  const warnings = validateAB(A, B);
+  if (warnings.length > 0) { showWarnings(warnings); return; }
+  showConfirm();
+}
+
+function validateAB(A, B) {
+  const RULES = {
+    'image generation': { suno:'Sunoは音楽生成ツールです', udio:'Udioは音楽生成ツールです', sora:'Soraは動画生成ツールです', runway:'Runwayは動画生成ツールです', kling:'Klingは動画生成ツールです' },
+    'video generation': { suno:'Sunoは音楽生成ツールです', udio:'Udioは音楽生成ツールです', midjourney:'Midjourneyは画像生成ツールです' },
+    'music / audio':    { midjourney:'Midjourneyは画像生成ツールです', sora:'Soraは動画生成ツールです', runway:'Runwayは動画生成ツールです' },
+    'automation workflow': { midjourney:'Midjourneyは画像生成ツールです', suno:'Sunoは音楽生成ツールです', sora:'Soraは動画生成ツールです' }
+  };
+  const aLow = A.toLowerCase();
+  const key = Object.keys(RULES).find(k => aLow.includes(k));
+  if (!key) return [];
+  const out = [];
+  for (const p of B) {
+    const pLow = p.toLowerCase();
+    for (const [k, msg] of Object.entries(RULES[key])) {
+      if (pLow.includes(k)) { out.push({ platform: p, message: msg }); break; }
+    }
+  }
+  return out;
+}
+
+function showWarnings(ws) {
+  document.getElementById('warning-list').innerHTML =
+    '<strong>選択内容の不一致</strong><ul>' +
+    ws.map(w => '<li><strong>' + w.platform + '</strong> — ' + w.message + '</li>').join('') + '</ul>';
+  setProgress(1); showScreen('screen-warning');
+}
+function backToPhase1() { setProgress(1); showScreen('screen-phase1'); }
+function continueFromWarning() { showConfirm(); }
+
+function showConfirm() {
+  const d = state.phase1Data;
+  const rows = [
+    ['カテゴリ', d.A],
+    ['AIツール', d.B.map(p => '<span class="chip">' + p + '</span>').join('')],
+    ['使用経験', d.C],
+    ['出力言語', d.D],
+    ['役割・立場', d.E1 || '—'],
+    ['実行したいこと', d.E2 || '—'],
+    ['目的・ゴール', d.E3 || '—'],
+    ['想定する受け手', d.E4 || '—'],
+    ['補足情報', d.E5 || '—'],
+    ['出力イメージ', d.E6 || '—'],
+    ['NG条件', d.E7 || '—'],
+    ['トーン', d.F_tone.length ? d.F_tone.join(', ') : '—'],
+    ['専門用語', d.F_jargon || '—'],
+    ['文字数', d.F_length || '—'],
+    ['出力形式', d.F_format || '—'],
+  ];
+  document.getElementById('confirm-content').innerHTML =
+    '<div class="cp-header">入力内容の確認</div>' +
+    rows.map(([k,v]) => '<div class="confirm-row"><dt>' + k + '</dt><dd>' + v + '</dd></div>').join('');
+  setProgress(2); showScreen('screen-confirm');
+}
+
+// ══════════════════════════════════════════════
+//  PHASE 1 WEBHOOK
+// ══════════════════════════════════════════════
+async function confirmAndGenerate() {
+  setProgress(3); showScreen('screen-loading');
+  document.getElementById('loading-msg').textContent = 'AIが質問を生成中...（10〜20秒）';
+  try {
+    const res = await fetch(WEBHOOK_PHASE1, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state.phase1Data)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data.llm_error) {
+      throw new Error(data.llm_error);
+    }
+    state.session   = data.session;
+    state.questions = data.questions || [];
+    state.prompt    = data.prompt_30pt || '';
+    state.iteration = 0;
+    showQA(data.questions);
+  } catch(e) {
+    showScreen('screen-questions');
+    document.getElementById('error-qa').textContent = 'エラーが発生しました: ' + e.message;
+    document.getElementById('error-qa').classList.remove('hidden');
+  }
+}
+
+// ══════════════════════════════════════════════
+//  Q&A
+// ══════════════════════════════════════════════
+function showQA(questions) {
+  state.questions = questions;
+  const c = document.getElementById('qa-fields');
+  c.innerHTML = '';
+  questions.forEach((q, i) => {
+    const f = document.createElement('div');
+    f.className = 'field';
+    f.style.animation = 'cardEnter .4s ease ' + (i * .08) + 's both';
+    if (q.choices && q.choices.length > 0) {
+      f.innerHTML = '<label>' + (i+1) + '. ' + q.question + ' <span class="req">*</span></label>' +
+        '<div class="radio-list" id="qa-radio-' + i + '">' +
+        q.choices.map((ch, j) =>
+          '<div class="radio-item" onclick="selectRadio(' + i + ',' + j + ',this)">' +
+          '<div class="radio-ring"></div><span>' + ch + '</span></div>'
+        ).join('') + '</div>';
+    } else {
+      f.innerHTML = '<label>' + (i+1) + '. ' + q.question + ' <span class="req">*</span></label>' +
+        '<input type="text" id="qa-text-' + i + '" placeholder="回答を入力してください">';
+    }
+    c.appendChild(f);
+  });
+  document.getElementById('qa-title').textContent = state.iteration === 0 ? '詳細情報の入力' : '追加質問';
+  document.getElementById('qa-desc').textContent = questions.length + '項目の質問に回答してください。';
+  document.getElementById('error-qa').classList.add('hidden');
+  showScreen('screen-questions');
+}
+
+function selectRadio(qIdx, optIdx, el) {
+  document.getElementById('qa-radio-' + qIdx).querySelectorAll('.radio-item').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+  el.dataset.value = state.questions[qIdx].choices[optIdx];
+}
+
+// ══════════════════════════════════════════════
+//  PHASE 2 WEBHOOK
+// ══════════════════════════════════════════════
+async function submitAnswers() {
+  const answers = [];
+  for (let i = 0; i < state.questions.length; i++) {
+    const q = state.questions[i]; let answer = '';
+    if (q.choices && q.choices.length > 0) {
+      const sel = document.querySelector('#qa-radio-' + i + ' .radio-item.selected');
+      if (!sel) {
+        document.getElementById('error-qa').textContent = '質問 ' + (i+1) + ' に回答してください。';
+        document.getElementById('error-qa').classList.remove('hidden'); return;
+      }
+      answer = sel.dataset.value || sel.querySelector('span').textContent;
+    } else {
+      answer = document.getElementById('qa-text-' + i).value.trim();
+      if (!answer) {
+        document.getElementById('error-qa').textContent = '質問 ' + (i+1) + ' に回答してください。';
+        document.getElementById('error-qa').classList.remove('hidden'); return;
+      }
+    }
+    answers.push({ variable: q.variable, question: q.question, answer });
+  }
+  showScreen('screen-loading');
+  document.getElementById('loading-msg').textContent = 'プロンプトを精製中...（10〜20秒）';
+  try {
+    const res = await fetch(WEBHOOK_PHASE2, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session: state.session, answers, prompt_30pt: state.prompt })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data.llm_error) { throw new Error(data.llm_error); }
+    state.session = data.session || state.session;
+    state.prompt  = data.refined_prompt || state.prompt;
+    state.iteration++;
+    showOutput(data.cost_warnings);
+  } catch(e) {
+    showScreen('screen-questions');
+    document.getElementById('error-qa').textContent = 'エラー: ' + e.message;
+    document.getElementById('error-qa').classList.remove('hidden');
+  }
+}
+
+// ══════════════════════════════════════════════
+//  OUTPUT
+// ══════════════════════════════════════════════
+function showOutput(costWarnings) {
+  document.getElementById('prompt-output').textContent = state.prompt;
+  document.getElementById('iter-badge').textContent = 'Iteration ' + state.iteration;
+  document.getElementById('field-additional').value = '';
+  if (costWarnings && costWarnings.length > 0) {
+    const warn = document.getElementById('error-qa');
+    warn.textContent = costWarnings.join(' / ');
+    warn.classList.remove('hidden');
+  }
+  setProgress(3); showScreen('screen-output');
+}
+
+function copyPrompt() {
+  navigator.clipboard.writeText(state.prompt).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ コピーしました'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 コピー'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ══════════════════════════════════════════════
+//  REFINE
+// ══════════════════════════════════════════════
+async function refineMore() {
+  const additional = document.getElementById('field-additional').value.trim();
+  showScreen('screen-loading');
+  document.getElementById('loading-msg').textContent = 'プロンプトを再精製中...（10〜20秒）';
+  try {
+    const res = await fetch(WEBHOOK_REFINE, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session: state.session, prompt_30pt: state.prompt, additional_context: additional, answers: [] })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data.llm_error) { throw new Error(data.llm_error); }
+    state.session = data.session || state.session;
+    state.prompt  = data.refined_prompt || state.prompt;
+    state.iteration++;
+    showOutput(data.cost_warnings);
+  } catch(e) { showOutput(); alert('エラーが発生しました: ' + e.message); }
+}
+
+function finishPrompt() {
+  document.getElementById('done-output').textContent = state.prompt;
+  setProgress(4); showScreen('screen-done');
+}
+
+function copyDone() {
+  navigator.clipboard.writeText(state.prompt).then(() => {
+    const btn = document.getElementById('done-copy-btn');
+    btn.textContent = '✓ コピーしました'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 コピー'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function startOver() {
+  state = { phase1Data: {}, session: null, prompt: '', questions: [], iteration: 0 };
+  document.querySelectorAll('.check-item').forEach(el => {
+    el.classList.remove('checked');
+    el.querySelector('input[type="checkbox"]').checked = false;
+  });
+  document.querySelectorAll('select').forEach(el => el.selectedIndex = 0);
+  document.querySelectorAll('input[type="text"]').forEach(el => el.value = '');
+  document.querySelectorAll('textarea').forEach(el => el.value = '');
+  filterPlatforms(); // Reset B filter
+  setProgress(1); showScreen('screen-phase1');
+}
+
+
+// ══════════════════════════════════════════════
+//  HELP SYSTEM
+// ══════════════════════════════════════════════
+const HELP_DATA = {
+  A: {
+    title: 'A. 作成カテゴリ',
+    why: 'なぜこの項目があるのか',
+    body: '<p>AIに「何を作りたいのか」を最初に伝える最も重要な項目です。カテゴリによって、AIが生成する質問の内容や、最終プロンプトの構造が大きく変わります。</p>'
+      + '<p><strong>考え方：</strong>あなたが今からAIに頼みたい作業は何ですか？最終的にどんな「成果物」が欲しいですか？</p>'
+      + '<div class="help-example"><strong>画像を作りたい</strong> → 画像生成プロンプト<br><strong>ブログ記事を書きたい</strong> → テキストコンテンツ<br><strong>n8nのワークフローを作りたい</strong> → 自動化ワークフロー<br><strong>Pythonでツールを作りたい</strong> → コード・技術実装</div>'
+      + '<p>迷ったら「最終成果物の形式」で判断してください。テキストが出てくるなら「テキスト」、画像なら「画像生成」です。</p>'
+  },
+  B: {
+    title: 'B. 使用するAIツール',
+    why: 'プロンプトはツールごとに最適な書き方が違います',
+    body: '<p>同じ指示でも、ChatGPT、Claude、Midjourneyではそれぞれ得意な書き方が異なります。ツールを指定することで、そのツールに最適化されたプロンプトが生成されます。</p>'
+      + '<p><strong>考え方：</strong>あなたがこのプロンプトを実際に貼り付けて使うツールはどれですか？</p>'
+      + '<div class="help-example"><strong>文章を書かせたい</strong> → ChatGPT、Claude、Geminiなど<br><strong>画像を生成したい</strong> → Midjourney、DALL-E、Stable Diffusionなど<br><strong>まだ決めていない</strong> → 「未定・相談したい」を選べばOK</div>'
+  },
+  C: {
+    title: 'C. AIツールの使用経験',
+    why: 'あなたのスキルに合った説明レベルに調整します',
+    body: '<p>初心者の方には丁寧なステップバイステップの説明を、上級者には簡潔で高度なテクニックを含むプロンプトを生成します。</p>'
+      + '<p><strong>考え方：</strong>普段のAIの使い方に最も近い選択肢を選んでください。背伸びする必要はありません。</p>'
+      + '<div class="help-example"><strong>ChatGPTに質問したことがある程度</strong> → 「時々使うが業務では使っていない」<br><strong>毎日の仕事でAIを活用している</strong> → 「定期的に活用している」<br><strong>APIを使ってアプリを作っている</strong> → 「デベロッパー・エンジニア」</div>'
+  },
+  D: {
+    title: 'D. 出力言語',
+    why: 'AIの出力言語を指定します',
+    body: '<p>プロンプト自体は英語で構成されますが、AIが最終的に出力する言語をここで指定します。</p>'
+      + '<p><strong>考え方：</strong>AIに出してほしい回答・成果物の言語は何語ですか？</p>'
+      + '<div class="help-example">日本語で記事を書いてほしい → <strong>日本語</strong><br>英語のメールを作りたい → <strong>英語</strong></div>'
+  },
+  E1: {
+    title: 'E1. 役割・立場',
+    why: 'AIに「専門家としての視点」を与えます',
+    body: '<p>AIは「あなたは〇〇の専門家です」と伝えると、その分野の知識・視点で回答するようになります。ここで入力した役割がプロンプトの冒頭に設定されます。</p>'
+      + '<p><strong>考え方：</strong>この作業を頼むとしたら、どんな専門家にお願いしますか？実在の職業でなくてもOKです。</p>'
+      + '<div class="help-example"><strong>「マーケティングディレクター」</strong> → 市場分析やターゲティングの視点が加わる<br><strong>「和食の料理長」</strong> → 食材や調理法の専門知識が反映される<br><strong>「UIデザイナー」</strong> → ユーザビリティやデザイン原則の視点</div>'
+      + '<p>空欄のままでも大丈夫です。AIが汎用的なアシスタントとして動作します。</p>'
+  },
+  E2: {
+    title: 'E2. 実行したいこと',
+    why: 'AIへの「具体的な指示」になります',
+    body: '<p>「何をしてほしいのか」をできるだけ具体的に書いてください。抽象的すぎると、AIの出力もぼんやりしたものになります。</p>'
+      + '<p><strong>考え方：</strong>AIに一言で頼むとしたら、「〇〇して」の〇〇は何ですか？</p>'
+      + '<div class="help-example"><strong>✕ 悪い例：</strong>「いい感じの文章を書いて」→ 何の文章？どこで使う？<br><strong>◎ 良い例：</strong>「新商品の紹介メールの件名と本文を5パターン作って」</div>'
+      + '<p>「作る」「分析する」「比較する」「変換する」「要約する」など、動詞で始めるとうまく書けます。</p>'
+  },
+  E3: {
+    title: 'E3. 目的・ゴール',
+    why: 'AIが「なぜやるのか」を理解すると出力の方向性が定まります',
+    body: '<p>同じ作業でも目的が違えば、最適な出力も変わります。「売上を増やしたい」のか「社内の理解を深めたい」のかで、文章のトーンや内容が変わります。</p>'
+      + '<p><strong>考え方：</strong>この成果物ができたら、最終的にどうなれば成功ですか？</p>'
+      + '<div class="help-example"><strong>「ブランド認知度を上げたい」</strong><br><strong>「顧客からの問い合わせを減らしたい」</strong><br><strong>「チームメンバーの作業時間を30%削減したい」</strong></div>'
+  },
+  E4: {
+    title: 'E4. 想定する受け手',
+    why: '読み手・利用者に合わせた内容になります',
+    body: '<p>誰が読む/使うのかによって、専門用語のレベル、説明の詳しさ、トーンが大きく変わります。</p>'
+      + '<p><strong>考え方：</strong>この成果物を最終的に見る人・使う人は誰ですか？</p>'
+      + '<div class="help-example"><strong>「20代〜30代の女性・SNSユーザー」</strong><br><strong>「社内のエンジニアチーム」</strong><br><strong>「投資家・経営陣」</strong><br><strong>「英語が母語でない留学生」</strong></div>'
+  },
+  E5: {
+    title: 'E5. 補足・背景情報',
+    why: 'AIが知らない前提条件を伝えます',
+    body: '<p>あなたの状況やプロジェクトの背景など、AIが知り得ない情報をここで補足します。この情報があると、より的確な質問とプロンプトが生成されます。</p>'
+      + '<p><strong>考え方：</strong>「この仕事を初めて頼む外部の人」に伝えておくべき前提情報は何ですか？</p>'
+      + '<div class="help-example"><strong>「来月のイベント用で、締切は2週間後」</strong><br><strong>「既存のブランドガイドラインに沿う必要がある」</strong><br><strong>「前回のキャンペーンでは若年層の反応が薄かった」</strong></div>'
+  },
+  E6: {
+    title: 'E6. 出力イメージ・参考例',
+    why: '「こういう感じにして」を伝えると精度が劇的に上がります',
+    body: '<p>具体的なイメージや参考例を伝えることで、AIは「何を目指せばいいか」を明確に理解できます。プロンプトエンジニアリングで最も効果的なテクニックの一つです。</p>'
+      + '<p><strong>考え方：</strong>「こんな感じにしてほしい」と見せるなら、どういうイメージですか？</p>'
+      + '<div class="help-example"><strong>テキストの場合：</strong>「Appleの製品紹介ページのような簡潔で洗練された文体」<br><strong>画像の場合：</strong>「浮世絵風で、金箔のテクスチャがあるモダンなデザイン」<br><strong>コードの場合：</strong>「Next.js App Router + TypeScriptで、shadcn/uiのコンポーネントを使用」</div>'
+  },
+  E7: {
+    title: 'E7. 避けたいこと・NG条件',
+    why: '「何をしないか」は「何をするか」と同じくらい重要です',
+    body: '<p>AIは明示的に禁止しないと、意図しない方向に出力が流れることがあります。NG条件を設定すると、プロンプトに「避けるべきこと」として明記され、出力の精度が向上します。</p>'
+      + '<p><strong>考え方：</strong>この成果物で「これだけは絶対にやめてほしい」ことは何ですか？</p>'
+      + '<div class="help-example"><strong>「競合他社のブランドカラーに似た配色は避ける」</strong><br><strong>「子供向けコンテンツなので暴力的・性的な表現はNG」</strong><br><strong>「専門用語を使わず、中学生でも理解できるレベルにする」</strong><br><strong>「箇条書きだけの無味乾燥な出力は避ける」</strong></div>'
+  }
+};
+
+function showHelp(fieldId) {
+  const data = HELP_DATA[fieldId];
+  if (!data) return;
+  const modal = document.getElementById('help-modal-content');
+  modal.innerHTML =
+    '<h3>' + data.title + '</h3>' +
+    '<div class="help-why">' + data.why + '</div>' +
+    data.body +
+    '<button class="help-close" onclick="closeHelp()">閉じる</button>';
+  document.getElementById('help-overlay').classList.remove('hidden');
+}
+
+function closeHelp(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('help-overlay').classList.add('hidden');
+}
+</script>
+</body>
+</html>
