@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Benchmark v1.1 — Quality Evaluator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ===================== DESIGN TOKENS ===================== */
+:root {
+  --bg-0: #030712;
+  --bg-1: #080e1a;
+  --bg-2: #0d1526;
+  --bg-3: #111d33;
+  --bg-4: #162240;
+  --border: rgba(79,107,199,0.2);
+  --border-bright: rgba(99,130,255,0.5);
+  --accent-1: #6366f1;
+  --accent-2: #8b5cf6;
+  --accent-3: #06b6d4;
+  --accent-4: #10b981;
+  --accent-warn: #f59e0b;
+  --accent-err: #ef4444;
+  --accent-orange: #f97316;
+  --text-1: #e8eeff;
+  --text-2: #8b9fd4;
+  --text-3: #4d608a;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 6px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.5);
+  --glow-blue: 0 0 30px rgba(99,102,241,0.25);
+  --glow-cyan: 0 0 20px rgba(6,182,212,0.2);
+}
+
+/* ===================== RESET & BASE ===================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg-0);
+  color: var(--text-1);
+  min-height: 100vh;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ===================== BG EFFECTS ===================== */
+.bg-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+}
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+  background-size: 52px 52px;
+}
+.bg-glow-1 {
+  position: absolute;
+  top: -200px; left: -200px;
+  width: 700px; height: 700px;
+  background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 60%);
+}
+.bg-glow-2 {
+  position: absolute;
+  bottom: -200px; right: -100px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(6,182,212,0.06) 0%, transparent 60%);
+}
+
+/* ===================== HEADER ===================== */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 0 28px;
+  height: 62px;
+  background: rgba(3,7,18,0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+.logo-mark {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-1) 0%, var(--accent-2) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -0.03em;
+  box-shadow: 0 0 16px rgba(99,102,241,0.4);
+  flex-shrink: 0;
+}
+.logo-text { display: flex; flex-direction: column; gap: 1px; }
+.logo-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+.logo-ver { font-size: 0.62rem; color: var(--text-3); letter-spacing: 0.05em; }
+.logo-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--accent-1), var(--accent-3));
+  color: #fff;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ===================== LAYOUT ===================== */
+.page-wrap {
+  max-width: 1340px;
+  margin: 0 auto;
+  padding: 28px 22px 80px;
+}
+
+/* ===================== STEP INDICATOR ===================== */
+.steps-wrap {
+  display: flex;
+  align-items: center;
+  margin-bottom: 32px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 24px;
+  gap: 0;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-3);
+  transition: all 0.3s;
+  cursor: default;
+}
+.step.active { background: rgba(99,102,241,0.15); color: var(--accent-1); }
+.step.done   { color: var(--accent-4); }
+.step-num {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--bg-4);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+.step.active .step-num {
+  background: var(--accent-1);
+  border-color: var(--accent-1);
+  color: white;
+  box-shadow: 0 0 10px rgba(99,102,241,0.5);
+}
+.step.done .step-num {
+  background: var(--accent-4);
+  border-color: var(--accent-4);
+  color: white;
+}
+.step-connector {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+/* ===================== CARDS ===================== */
+.card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+  border-color: rgba(99,102,241,0.3);
+  box-shadow: var(--shadow-lg);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.card-icon {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.icon-blue   { background: rgba(99,102,241,0.2);  }
+.icon-green  { background: rgba(16,185,129,0.2);  }
+.icon-orange { background: rgba(249,115,22,0.2);  }
+.icon-cyan   { background: rgba(6,182,212,0.2);   }
+.icon-purple { background: rgba(139,92,246,0.2);  }
+
+/* ===================== GRIDS ===================== */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+
+/* ===================== FORM ===================== */
+.form-group { margin-bottom: 16px; }
+.form-group:last-child { margin-bottom: 0; }
+label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 6px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.required::after { content: " *"; color: var(--accent-err); }
+textarea, input[type="text"], input[type="number"], select {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-1);
+  padding: 10px 14px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+textarea:focus, input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent-1);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b9fd4' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+.input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ===================== BUTTONS ===================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  text-decoration: none;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-1) 0%, var(--accent-2) 100%);
+  color: white;
+  box-shadow: 0 2px 12px rgba(99,102,241,0.35);
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 24px rgba(99,102,241,0.5);
+  filter: brightness(1.05);
+}
+.btn-secondary {
+  background: var(--bg-3);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-4);
+  border-color: var(--border-bright);
+  color: var(--text-1);
+}
+.btn-success {
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: white;
+  box-shadow: 0 2px 12px rgba(16,185,129,0.3);
+}
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(16,185,129,0.45);
+}
+.btn-danger {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+  color: white;
+}
+.btn-sm {
+  padding: 6px 14px;
+  border-radius: var(--radius-xs);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-2);
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.btn-sm:hover { background: var(--bg-4); border-color: var(--border-bright); color: var(--text-1); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+.btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+
+/* ===================== BADGES ===================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.badge-pass     { background: rgba(16,185,129,0.15); color: var(--accent-4); border: 1px solid rgba(16,185,129,0.3); }
+.badge-fail     { background: rgba(239,68,68,0.15);  color: var(--accent-err); border: 1px solid rgba(239,68,68,0.3); }
+.badge-marginal { background: rgba(245,158,11,0.15); color: var(--accent-warn); border: 1px solid rgba(245,158,11,0.3); }
+.badge-low      { background: rgba(16,185,129,0.1);  color: var(--accent-4); border: 1px solid rgba(16,185,129,0.2); }
+.badge-medium   { background: rgba(245,158,11,0.1);  color: var(--accent-warn); border: 1px solid rgba(245,158,11,0.2); }
+.badge-high     { background: rgba(239,68,68,0.1);   color: var(--accent-err); border: 1px solid rgba(239,68,68,0.2); }
+
+/* ===================== SETTINGS PANEL ===================== */
+.settings-panel {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  display: none;
+  animation: fadeSlideDown 0.2s ease;
+}
+.settings-panel.open { display: block; }
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.settings-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ===================== SCORE DISPLAY ===================== */
+.score-big { text-align: center; padding: 24px 16px; }
+.score-circle {
+  width: 140px; height: 140px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent-1) 0%, transparent 0%);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  position: relative;
+  transition: background 1s ease;
+}
+.score-circle::before {
+  content: '';
+  position: absolute;
+  width: 108px; height: 108px;
+  background: var(--bg-2);
+  border-radius: 50%;
+}
+.score-circle-inner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+.score-number { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.04em; }
+.score-label  { font-size: 0.7rem; color: var(--text-3); margin-top: 2px; }
+.score-desc   { font-size: 0.8rem; color: var(--text-2); margin-top: 8px; }
+
+/* ===================== AXIS BARS ===================== */
+.axis-list { display: flex; flex-direction: column; gap: 10px; }
+.axis-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 48px 56px;
+  align-items: center;
+  gap: 10px;
+}
+.axis-name { font-size: 0.78rem; color: var(--text-2); font-weight: 500; }
+.axis-bar-wrap {
+  height: 7px;
+  background: var(--bg-4);
+  border-radius: 100px;
+  overflow: hidden;
+}
+.axis-bar-fill {
+  height: 100%;
+  border-radius: 100px;
+  transition: width 0.9s cubic-bezier(0.25,0.8,0.25,1);
+  width: 0%;
+}
+.axis-score { font-size: 0.82rem; font-weight: 700; text-align: right; }
+.verdict-pass { color: var(--accent-4); font-size: 0.7rem; font-weight: 700; }
+.verdict-fail { color: var(--accent-err); font-size: 0.7rem; font-weight: 700; }
+
+/* ===================== RADAR ===================== */
+.radar-wrap { display: flex; justify-content: center; padding: 12px 0; }
+canvas#radarChart { max-width: 320px; }
+
+/* ===================== TABS ===================== */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.tab {
+  padding: 9px 16px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-3);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+}
+.tab.active { color: var(--accent-1); border-bottom-color: var(--accent-1); }
+.tab:hover:not(.active) { color: var(--text-1); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ===================== OUTPUT SAMPLES ===================== */
+.output-sample {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-bottom: 10px;
+  font-size: 0.82rem;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-2);
+}
+.output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 0.72rem;
+  color: var(--text-3);
+  font-family: 'Inter', sans-serif;
+}
+
+/* ===================== RECOMMENDATIONS ===================== */
+.rec-list { display: flex; flex-direction: column; gap: 8px; }
+.rec-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-3);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent-1);
+  font-size: 0.82rem;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.rec-num {
+  min-width: 22px; height: 22px;
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  color: white;
+  border-radius: 50%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ===================== ISSUES ===================== */
+.issue-item {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(239,68,68,0.07);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  margin-bottom: 8px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.issue-dot {
+  width: 6px; height: 6px;
+  background: var(--accent-err);
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+/* ===================== IMPROVED BOX ===================== */
+.improved-box {
+  background: rgba(16,185,129,0.07);
+  border: 1px solid rgba(16,185,129,0.25);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-size: 0.82rem;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.8;
+  color: var(--text-2);
+}
+
+/* ===================== COST ROWS ===================== */
+.cost-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+.cost-row:last-child { border-bottom: none; }
+.cost-value { font-weight: 700; color: var(--accent-3); }
+
+/* ===================== LOADING ===================== */
+.loading-overlay {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 24px;
+}
+.loading-overlay.show { display: flex; }
+.spinner {
+  width: 44px; height: 44px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent-1);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-msg { font-size: 0.9rem; color: var(--text-2); font-weight: 500; }
+.loading-sub { font-size: 0.75rem; color: var(--text-3); }
+
+/* ===================== ALERT ===================== */
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  margin-bottom: 16px;
+  display: none;
+  line-height: 1.5;
+}
+.alert.show { display: flex; align-items: flex-start; gap: 10px; }
+.alert-error   { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.3);  color: #fca5a5; }
+.alert-success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+.alert-info    { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); color: #a5b4fc; }
+
+/* ===================== COMPARE TABLE ===================== */
+.compare-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.compare-table th, .compare-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.compare-table th { background: var(--bg-3); color: var(--text-3); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.compare-table tr:hover td { background: rgba(255,255,255,0.02); }
+.score-cell { font-weight: 700; }
+.score-high { color: var(--accent-4); }
+.score-mid  { color: var(--accent-warn); }
+.score-low  { color: var(--accent-err); }
+
+/* ===================== BENCHMARK GUIDE ITEMS ===================== */
+.bm-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.bm-item:last-child { border-bottom: none; }
+.bm-badge {
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+.bm-badge-0 { background: rgba(16,185,129,0.2); color: var(--accent-4); }
+.bm-badge-1 { background: rgba(6,182,212,0.2);  color: var(--accent-3); }
+.bm-badge-2 { background: rgba(139,92,246,0.2); color: var(--accent-2); }
+.bm-badge-3 { background: rgba(249,115,22,0.2); color: var(--accent-orange); }
+.bm-info-title { font-size: 0.82rem; font-weight: 600; color: var(--text-1); margin-bottom: 2px; }
+.bm-info-sub   { font-size: 0.72rem; color: var(--text-3); }
+
+/* ===================== A/B SECTION ===================== */
+.ab-section { display: none; margin-bottom: 24px; }
+.ab-section.show { display: block; }
+
+/* ===================== DIVIDER ===================== */
+.section-gap { margin-bottom: 24px; }
+
+/* ===================== SCROLLBAR ===================== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-1); }
+::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-1); }
+
+/* ===================== FOOTER ===================== */
+.footer {
+  margin-top: 60px;
+  padding: 22px 28px;
+  border-top: 1px solid var(--border);
+  background: rgba(5,8,16,0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.footer-inner {
+  max-width: 1340px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.footer-brand { display: flex; align-items: center; gap: 12px; }
+.footer-logo {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -0.02em;
+  box-shadow: 0 0 12px rgba(99,102,241,0.35);
+}
+.footer-company {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.footer-product { font-size: 0.68rem; color: var(--text-3); margin-top: 1px; }
+.footer-sep { width: 1px; height: 32px; background: var(--border); }
+.footer-tagline { font-size: 0.7rem; color: var(--text-3); letter-spacing: 0.03em; }
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 960px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .axis-row { grid-template-columns: 90px 1fr 40px 50px; }
+  .steps-wrap { overflow-x: auto; }
+  .footer-inner { flex-direction: column; text-align: center; gap: 10px; }
+}
+</style>
+</head>
+<body>
+
+<!-- BG -->
+<div class="bg-wrap">
+  <div class="bg-grid"></div>
+  <div class="bg-glow-1"></div>
+  <div class="bg-glow-2"></div>
+</div>
+
+<!-- ===================== HEADER ===================== -->
+<header class="header">
+  <a class="logo" href="#">
+    <div class="logo-mark">BM</div>
+    <div class="logo-text">
+      <span class="logo-name">Prompt Benchmark</span>
+      <span class="logo-ver">LLM-as-Judge 品質評価システム — 10軸スコアリング</span>
+    </div>
+    <span class="logo-badge">v1.1</span>
+  </a>
+  <div class="header-right">
+    <button class="btn-sm" onclick="toggleSettings()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      設定
+    </button>
+    <button class="btn-sm" onclick="clearAll()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+      クリア
+    </button>
+    <button class="btn-sm" onclick="exportReport()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      エクスポート
+    </button>
+    <button class="btn-sm" onclick="showHistory()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h6l2 4-3 2a11 11 0 0 0 10 10l2-3 4 2v6a2 2 0 0 1-2 2A18 18 0 0 1 3 5a2 2 0 0 1 2-2"/></svg>
+      履歴
+    </button>
+  </div>
+</header>
+
+<!-- ===================== MAIN CONTENT ===================== -->
+<div class="page-wrap">
+
+  <!-- Settings Panel -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-title">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      n8n 接続設定
+    </div>
+    <div class="input-row">
+      <div class="form-group" style="margin:0">
+        <label>n8n ベースURL</label>
+        <input type="text" id="n8nBaseUrl" placeholder="http://localhost:5678" value="http://localhost:5678">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>APIキー（任意）</label>
+        <input type="text" id="apiKey" placeholder="n8n-api-key（省略可）">
+      </div>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:8px;">
+      <button class="btn btn-secondary" style="padding:6px 16px;font-size:0.78rem" onclick="saveSettings()">保存</button>
+      <button class="btn btn-secondary" style="padding:6px 16px;font-size:0.78rem" onclick="testConnection()">接続テスト</button>
+    </div>
+  </div>
+
+  <!-- Step Indicator -->
+  <div class="steps-wrap">
+    <div class="step active" id="step1">
+      <span class="step-num">1</span>
+      <span>入力</span>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step" id="step2">
+      <span class="step-num">2</span>
+      <span>BM1 実行</span>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step" id="step3">
+      <span class="step-num">3</span>
+      <span>BM2 Judge 評価</span>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step" id="step4">
+      <span class="step-num">4</span>
+      <span>結果表示</span>
+    </div>
+  </div>
+
+  <!-- ===================== INPUT SECTION ===================== -->
+  <div id="screen-input" class="grid-2 section-gap">
+
+    <!-- Left: Input Form -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-icon icon-blue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div>
+          プロンプト入力
+        </div>
+        <button class="btn-sm" onclick="loadSample()">サンプル読込</button>
+      </div>
+
+      <div id="alertBox" class="alert alert-error"></div>
+
+      <div class="form-group">
+        <label class="required">評価対象プロンプト</label>
+        <textarea id="promptInput" rows="7" placeholder="評価したいプロンプトをここに入力してください。
+
+例：
+あなたはプロのコピーライターです。
+以下の条件でSNS投稿文を5パターン作成してください..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>タスク説明（任意）</label>
+        <input type="text" id="taskDesc" placeholder="例: ECサイト向けSNS投稿文の生成">
+      </div>
+
+      <div class="input-row">
+        <div class="form-group">
+          <label>実行回数</label>
+          <select id="runCount">
+            <option value="1">1回</option>
+            <option value="2">2回</option>
+            <option value="3" selected>3回</option>
+            <option value="5">5回</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>対象モデル</label>
+          <select id="targetModel">
+            <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash</option>
+            <option value="gpt-5-mini">GPT-5 mini</option>
+            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>ベースラインプロンプト（A/B比較用・任意）</label>
+        <textarea id="baselineInput" rows="3" placeholder="比較対象の既存プロンプトを入力（省略可）"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>成果物仕様（任意）</label>
+        <input type="text" id="artifactSpec" placeholder="例: JSON形式で5項目、各200文字以内">
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btnRun" onclick="runBenchmark()" style="flex:1;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          ベンチマーク実行
+        </button>
+        <button class="btn btn-secondary" id="btnAbMode" onclick="toggleAbMode()">
+          A/B モード
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: Guide + Cost Estimate -->
+    <div style="display:flex;flex-direction:column;gap:18px;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-icon icon-cyan">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            ベンチマーク処理フロー
+          </div>
+        </div>
+        <div class="bm-item">
+          <div class="bm-badge bm-badge-0">BM0</div>
+          <div>
+            <div class="bm-info-title">前処理・ID発行</div>
+            <div class="bm-info-sub">プロンプト解析・ベンチマークID生成</div>
+          </div>
+        </div>
+        <div class="bm-item">
+          <div class="bm-badge bm-badge-1">BM1</div>
+          <div>
+            <div class="bm-info-title">プロンプト実行</div>
+            <div class="bm-info-sub">Gemini 2.5 Flash で N回実行・出力収集</div>
+          </div>
+        </div>
+        <div class="bm-item">
+          <div class="bm-badge bm-badge-2">BM2</div>
+          <div>
+            <div class="bm-info-title">LLM-as-Judge 評価</div>
+            <div class="bm-info-sub">GPT-5 による 10軸スコアリング</div>
+          </div>
+        </div>
+        <div class="bm-item">
+          <div class="bm-badge bm-badge-3">BM3</div>
+          <div>
+            <div class="bm-info-title">改善提案生成</div>
+            <div class="bm-info-sub">課題分析・改善プロンプト出力</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-icon icon-orange">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            コスト見積もり
+          </div>
+        </div>
+        <div id="costEstimate">
+          <div class="cost-row">
+            <span>BM1 実行（Gemini 2.5 Flash × <span id="costRunCount">3</span>回）</span>
+            <span class="cost-value" id="costBm1">≈ $0.030</span>
+          </div>
+          <div class="cost-row">
+            <span>BM2 Judge（GPT-5）</span>
+            <span class="cost-value">≈ $0.050</span>
+          </div>
+          <div class="cost-row" style="font-weight:700;color:var(--text-1);">
+            <span>合計</span>
+            <span class="cost-value" id="costTotal">≈ $0.080</span>
+          </div>
+          <div class="cost-row" style="border:none;padding-top:4px;">
+            <span style="font-size:0.72rem;color:var(--text-3);">参考：$1 ≈ ¥150換算</span>
+            <span style="font-size:0.72rem;color:var(--text-3);" id="costJpy">≈ ¥12</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- A/B Section -->
+  <div id="abSection" class="ab-section">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-icon icon-purple">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="3" y="3" width="8" height="18" rx="1"/><rect x="13" y="3" width="8" height="18" rx="1"/></svg>
+          </div>
+          A/B 比較モード
+        </div>
+        <button class="btn-sm" onclick="toggleAbMode()">閉じる</button>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="required">プロンプト A（候補）</label>
+          <textarea id="promptA" rows="6" placeholder="評価するプロンプトAを入力してください..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="required">プロンプト B（比較対象 / ベースライン）</label>
+          <textarea id="promptB" rows="6" placeholder="比較対象のプロンプトBを入力してください..."></textarea>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="runAbBenchmark()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          A/B ベンチマーク実行
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-overlay" id="loadingBox">
+    <div class="spinner"></div>
+    <div class="loading-msg" id="loadingMsg">処理中...</div>
+    <div class="loading-sub">BM1: プロンプト実行 ＞ BM2: Judge評価 ＞ BM3: 改善提案</div>
+  </div>
+
+  <!-- ===================== RESULTS SECTION ===================== -->
+  <div id="screen-results" style="display:none;">
+
+    <!-- Score Overview: 3 cards -->
+    <div class="grid-3 section-gap">
+
+      <!-- Composite Score -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-icon icon-blue">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            </div>
+            総合スコア
+          </div>
+          <div id="passBadge"></div>
+        </div>
+        <div class="score-big">
+          <div class="score-circle" id="scoreCircle">
+            <div class="score-circle-inner">
+              <div class="score-number" id="scoreNumber">—</div>
+              <div class="score-label">/ 100</div>
+            </div>
+          </div>
+          <div class="score-desc" id="scoreDesc"></div>
+        </div>
+      </div>
+
+      <!-- Consistency -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-icon icon-green">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            一貫性分析
+          </div>
+          <div id="consistencyBadge"></div>
+        </div>
+        <div style="padding:12px 0;">
+          <div class="cost-row">
+            <span>変動係数 (CV)</span>
+            <span class="cost-value" id="cvPercent">—</span>
+          </div>
+          <div class="cost-row">
+            <span>平均文字数</span>
+            <span class="cost-value" id="meanLen">—</span>
+          </div>
+          <div class="cost-row">
+            <span>標準偏差</span>
+            <span class="cost-value" id="stdDev">—</span>
+          </div>
+          <div class="cost-row" style="border:none;align-items:flex-start;">
+            <span>評価コメント</span>
+            <span id="consistencyNote" style="font-size:0.72rem;color:var(--text-2);text-align:right;max-width:150px;line-height:1.5;">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Benchmark Cost Result -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-icon icon-orange">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            実行コスト
+          </div>
+        </div>
+        <div style="padding:12px 0;">
+          <div class="cost-row">
+            <span>BM1 実行費用</span>
+            <span class="cost-value" id="resultExecCost">—</span>
+          </div>
+          <div class="cost-row">
+            <span>BM2 Judge費用</span>
+            <span class="cost-value" id="resultJudgeCost">—</span>
+          </div>
+          <div class="cost-row" style="font-weight:700;color:var(--text-1);">
+            <span>合計</span>
+            <span class="cost-value" id="resultTotalCost">—</span>
+          </div>
+          <div class="cost-row" style="border:none;">
+            <span style="font-size:0.72rem;color:var(--text-3);">Judge モデル</span>
+            <span style="font-size:0.72rem;color:var(--text-3);" id="judgeModelLabel">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Axis Scores + Radar -->
+    <div class="grid-2 section-gap">
+      <!-- Axis detail card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-icon icon-blue">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </div>
+            10軸スコア詳細
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'tabBars')">バーグラフ</div>
+          <div class="tab" onclick="switchTab(this,'tabRadar')">レーダー</div>
+          <div class="tab" onclick="switchTab(this,'tabTable')">テーブル</div>
+        </div>
+        <div class="tab-content active" id="tabBars">
+          <div class="axis-list" id="axisBars"></div>
+        </div>
+        <div class="tab-content" id="tabRadar">
+          <div class="radar-wrap">
+            <canvas id="radarChart" width="320" height="320"></canvas>
+          </div>
+        </div>
+        <div class="tab-content" id="tabTable">
+          <table class="compare-table" id="axisTable">
+            <thead>
+              <tr>
+                <th>評価軸</th>
+                <th>スコア</th>
+                <th>重み</th>
+                <th>判定</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Issues + Recs -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="card-icon icon-orange">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            課題と改善提案
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'tabIssues')">課題</div>
+          <div class="tab" onclick="switchTab(this,'tabRecs')">改善提案</div>
+          <div class="tab" onclick="switchTab(this,'tabImproved')">改善済みプロンプト</div>
+        </div>
+        <div class="tab-content active" id="tabIssues">
+          <div id="issuesList"></div>
+        </div>
+        <div class="tab-content" id="tabRecs">
+          <div class="rec-list" id="recsList"></div>
+        </div>
+        <div class="tab-content" id="tabImproved">
+          <div class="improved-box" id="improvedPrompt" style="margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-success" style="flex:1;padding:8px;" onclick="copyImproved()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              コピー
+            </button>
+            <button class="btn btn-secondary" style="flex:1;padding:8px;" onclick="useImproved()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/></svg>
+              入力に適用
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Output Samples -->
+    <div class="card section-gap">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-icon icon-cyan">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          </div>
+          実行出力サンプル
+          <span id="outputCount" style="font-size:0.72rem;color:var(--text-3);font-weight:400;margin-left:4px;"></span>
+        </div>
+        <button class="btn-sm" onclick="exportMarkdown()">Markdown出力</button>
+      </div>
+      <div id="outputSamples"></div>
+    </div>
+
+    <!-- Baseline comparison card (hidden by default) -->
+    <div class="card section-gap" id="baselineCard" style="display:none;">
+      <div class="card-header">
+        <div class="card-title">
+          <div class="card-icon icon-purple">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+          </div>
+          ベースライン比較
+        </div>
+        <div id="baselineWinner"></div>
+      </div>
+      <div class="grid-2">
+        <div class="cost-row" style="border:none;">
+          <span>スコア差分</span>
+          <span class="cost-value" id="baselineDelta">—</span>
+        </div>
+        <div style="font-size:0.82rem;color:var(--text-2);" id="baselineNote"></div>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="btn-group">
+      <button class="btn btn-secondary" onclick="saveHistory()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        履歴に保存
+      </button>
+      <button class="btn btn-secondary" onclick="exportReport()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        JSONエクスポート
+      </button>
+      <button class="btn btn-secondary" onclick="exportMarkdown()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Markdown出力
+      </button>
+      <button class="btn btn-primary" onclick="clearAll()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+        新規評価を開始
+      </button>
+    </div>
+
+  </div><!-- /screen-results -->
+
+</div><!-- /page-wrap -->
+
+<!-- ===================== FOOTER ===================== -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <div class="footer-logo">TS</div>
+      <div>
+        <div class="footer-company">Technical Solution Inc</div>
+        <div class="footer-product">Prompt HyperOptimizer Benchmark v1.1</div>
+      </div>
+    </div>
+    <div class="footer-sep"></div>
+    <div class="footer-tagline">AI Workflow Automation Platform</div>
+  </div>
+</footer>
+
+<!-- ===================== JAVASCRIPT ===================== -->
+<script>
+// ===================== CONFIG & CONSTANTS =====================
+const AXIS_META = {
+  clarity:              { label: '明確性',       weight: 0.15 },
+  specificity:          { label: '具体性',       weight: 0.12 },
+  completeness:         { label: '完全性',       weight: 0.12 },
+  audience_fit:         { label: '対象適合性',   weight: 0.10 },
+  actionability:        { label: '実行可能性',   weight: 0.10 },
+  consistency:          { label: '一貫性',       weight: 0.10 },
+  instruction_following:{ label: '指示遵守',     weight: 0.10 },
+  hallucination_risk:   { label: '幻覚リスク',   weight: 0.08 },
+  safety:               { label: '安全性',       weight: 0.08 },
+  token_efficiency:     { label: 'トークン効率', weight: 0.05 }
+};
+
+const CONFIG = {
+  baseUrl: localStorage.getItem('bm_baseUrl') || 'http://localhost:5678',
+  apiKey:  localStorage.getItem('bm_apiKey')  || ''
+};
+
+const state = {
+  execResult:  null,
+  judgeResult: null,
+  history:     JSON.parse(localStorage.getItem('bm_history') || '[]'),
+  radarChart:  null
+};
+
+// ===================== INIT =====================
+window.onload = function() {
+  document.getElementById('n8nBaseUrl').value = CONFIG.baseUrl;
+  document.getElementById('apiKey').value     = CONFIG.apiKey;
+  updateCostEstimate();
+};
+
+// ===================== SETTINGS =====================
+function toggleSettings() {
+  document.getElementById('settingsPanel').classList.toggle('open');
+}
+function saveSettings() {
+  CONFIG.baseUrl = document.getElementById('n8nBaseUrl').value.trim() || 'http://localhost:5678';
+  CONFIG.apiKey  = document.getElementById('apiKey').value.trim();
+  localStorage.setItem('bm_baseUrl', CONFIG.baseUrl);
+  localStorage.setItem('bm_apiKey',  CONFIG.apiKey);
+  showAlert('設定を保存しました。', 'success');
+}
+async function testConnection() {
+  showAlert('接続テスト中...', 'info', true);
+  try {
+    const res = await fetch(CONFIG.baseUrl, { method: 'GET', signal: AbortSignal.timeout(5000) });
+    showAlert(`接続成功（ステータス: ${res.status}）`, 'success');
+  } catch(e) {
+    showAlert(`接続失敗: ${e.message}`, 'error');
+  }
+}
+
+// ===================== COST ESTIMATE =====================
+document.addEventListener('DOMContentLoaded', () => {
+  const rc = document.getElementById('runCount');
+  if (rc) rc.addEventListener('change', updateCostEstimate);
+});
+function updateCostEstimate() {
+  const rc  = parseInt(document.getElementById('runCount').value);
+  const bm1 = rc * 0.01;
+  const bm2 = 0.05;
+  const total = bm1 + bm2;
+  document.getElementById('costRunCount').textContent = rc;
+  document.getElementById('costBm1').textContent      = `≈ $${bm1.toFixed(3)}`;
+  document.getElementById('costTotal').textContent    = `≈ $${total.toFixed(3)}`;
+  document.getElementById('costJpy').textContent      = `≈ ¥${Math.round(total * 150)}`;
+}
+
+// ===================== SAMPLE LOADER =====================
+function loadSample() {
+  document.getElementById('promptInput').value =
+`あなたはプロのSNSマーケターです。
+以下の条件でInstagram投稿文を5パターン作成してください。
+
+商品: オーガニックコーヒー（250g）
+価格: 2,540円
+ターゲット: 健康意識の高い30代女性
+トーン: 親しみやすく、ていねい
+文字数: 各投稿 100〜150文字
+必須要素: ハッシュタグ3個以上
+
+出力形式:
+1. [パターン名] — [本文]
+2. ...以降5パターン`;
+
+  document.getElementById('taskDesc').value      = 'ECサイト向けSNS投稿文の生成';
+  document.getElementById('artifactSpec').value  = '5パターン、各100〜150文字、JSON形式';
+}
+
+// ===================== A/B MODE =====================
+function toggleAbMode() {
+  document.getElementById('abSection').classList.toggle('show');
+}
+async function runAbBenchmark() {
+  const pA = document.getElementById('promptA').value.trim();
+  const pB = document.getElementById('promptB').value.trim();
+  if (!pA || !pB) { showAlert('プロンプトAとBの両方を入力してください。', 'error'); return; }
+
+  showAlert('A/B ベンチマーク: /webhook/benchmark-ab に送信中...', 'info');
+  try {
+    const res = await apiCall('/webhook/benchmark-ab', {
+      prompt_a: pA,
+      prompt_b: pB,
+      task_description: document.getElementById('taskDesc').value,
+      run_count: parseInt(document.getElementById('runCount').value)
+    });
+    showAlert('A/B 完了: /benchmark-run → /benchmark-judge が正常に完了しました。', 'success');
+    console.log('AB result:', res);
+  } catch(e) {
+    showAlert('A/B エラー: ' + e.message, 'error');
+  }
+}
+
+// ===================== MAIN BENCHMARK =====================
+async function runBenchmark() {
+  const prompt = document.getElementById('promptInput').value.trim();
+  if (!prompt) { showAlert('評価対象のプロンプトを入力してください。', 'error'); return; }
+
+  setLoading(true, 'BM0〜BM1: プロンプト実行中...');
+  setStep(2);
+
+  try {
+    // Phase BM0 + BM1: Execute
+    const execRes = await apiCall('/webhook/benchmark-run', {
+      prompt,
+      task_description: document.getElementById('taskDesc').value,
+      target_model:     document.getElementById('targetModel').value,
+      run_count:        parseInt(document.getElementById('runCount').value),
+      baseline_prompt:  document.getElementById('baselineInput').value.trim(),
+      artifact_spec:    document.getElementById('artifactSpec').value.trim()
+    });
+
+    if (!execRes.outputs || !execRes.outputs.length) {
+      throw new Error('出力データが空です: ' + JSON.stringify(execRes));
+    }
+
+    state.execResult = execRes;
+    setLoading(true, 'BM2: GPT-5 Judge 評価中...');
+    setStep(3);
+
+    // Phase BM2〜BM4: Judge
+    const judgeRes = await apiCall('/webhook/benchmark-judge', {
+      prompt,
+      task_description: document.getElementById('taskDesc').value,
+      execOutputs:      execRes.outputs,
+      benchmarkId:      execRes.benchmarkId,
+      baseline_prompt:  document.getElementById('baselineInput').value.trim(),
+      artifact_spec:    document.getElementById('artifactSpec').value.trim()
+    });
+
+    state.judgeResult = judgeRes;
+    setLoading(false);
+    setStep(4);
+    renderResults(judgeRes, execRes);
+
+  } catch(e) {
+    setLoading(false);
+    setStep(1);
+    showAlert('エラー: ' + e.message, 'error');
+    console.error(e);
+  }
+}
+
+// ===================== API CALLER =====================
+async function apiCall(path, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (CONFIG.apiKey) headers['X-N8N-API-KEY'] = CONFIG.apiKey;
+
+  const res = await fetch(CONFIG.baseUrl + path, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(120000)
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`HTTP ${res.status}: ${txt.slice(0, 200)}`);
+  }
+  return await res.json();
+}
+
+// ===================== RENDER RESULTS =====================
+function renderResults(judge, exec) {
+  document.getElementById('screen-results').style.display = 'block';
+  document.getElementById('screen-results').scrollIntoView({ behavior: 'smooth' });
+
+  const scores    = judge.scores || {};
+  const composite = judge.composite_score || 0;
+  const passFail  = judge.pass_fail || 'FAIL';
+
+  // Composite score circle
+  const color = composite >= 80 ? '#10b981' : composite >= 70 ? '#f59e0b' : '#ef4444';
+  const pct   = composite / 100;
+  document.getElementById('scoreCircle').style.background =
+    `conic-gradient(${color} ${pct * 360}deg, #111d33 0deg)`;
+  document.getElementById('scoreNumber').textContent = composite.toFixed(1);
+  document.getElementById('scoreNumber').style.color = color;
+  document.getElementById('scoreDesc').textContent =
+    composite >= 80 ? '優秀 — 本番運用レベルです' :
+    composite >= 70 ? '良好 — 改善で更に向上できます' : '要改善 — 課題を確認してください';
+
+  const pf    = passFail.toLowerCase();
+  const pfMap = { pass:'badge-pass', fail:'badge-fail', marginal:'badge-marginal' };
+  document.getElementById('passBadge').innerHTML =
+    `<span class="badge ${pfMap[pf] || 'badge-fail'}">${passFail}</span>`;
+
+  // Consistency
+  const ca   = judge.consistency_analysis || {};
+  const vl   = (ca.variance_level || '').toLowerCase();
+  const vlMap = { low:'badge-low', medium:'badge-medium', high:'badge-high' };
+  document.getElementById('consistencyBadge').innerHTML =
+    `<span class="badge ${vlMap[vl] || ''}">${ca.variance_level || '—'}</span>`;
+  document.getElementById('cvPercent').textContent = ca.cv_percent   != null ? ca.cv_percent + '%'          : '—';
+  document.getElementById('meanLen').textContent   = ca.mean_length  != null ? ca.mean_length + ' 文字'      : '—';
+  document.getElementById('stdDev').textContent    = ca.std_dev      != null ? '±' + ca.std_dev              : '—';
+  document.getElementById('consistencyNote').textContent = ca.variance_note || '—';
+
+  // Costs
+  const execCost  = exec?.execCostUsd  || 0;
+  const judgeCost = judge.judgeCostUsd || 0;
+  document.getElementById('resultExecCost').textContent  = '$' + execCost.toFixed(5);
+  document.getElementById('resultJudgeCost').textContent = '$' + judgeCost.toFixed(5);
+  document.getElementById('resultTotalCost').textContent =
+    '$' + (execCost + judgeCost).toFixed(5) + ' (≈¥' + Math.round((execCost + judgeCost) * 150) + ')';
+  document.getElementById('judgeModelLabel').textContent = judge.judge_model || 'gpt-5';
+
+  // Axis bars & table
+  const barsEl    = document.getElementById('axisBars');
+  const tableBody = document.querySelector('#axisTable tbody');
+  barsEl.innerHTML    = '';
+  tableBody.innerHTML = '';
+
+  Object.entries(AXIS_META).forEach(([key, meta]) => {
+    const score   = scores[key] ?? 0;
+    const verdict = judge.axis_verdicts?.[key] || (score >= 70 ? 'PASS' : 'FAIL');
+    const barColor = score >= 80 ? '#10b981' : score >= 70 ? '#f59e0b' : '#ef4444';
+
+    const row = document.createElement('div');
+    row.className = 'axis-row';
+    row.innerHTML = `
+      <div class="axis-name">${meta.label}</div>
+      <div class="axis-bar-wrap">
+        <div class="axis-bar-fill" style="width:${score}%;background:${barColor}"></div>
+      </div>
+      <div class="axis-score" style="color:${barColor}">${score}</div>
+      <div class="${verdict === 'PASS' ? 'verdict-pass' : 'verdict-fail'}">${verdict}</div>
+    `;
+    barsEl.appendChild(row);
+
+    const tr = document.createElement('tr');
+    const sc = `score-${score >= 80 ? 'high' : score >= 70 ? 'mid' : 'low'}`;
+    tr.innerHTML = `
+      <td>${meta.label}</td>
+      <td class="score-cell ${sc}">${score}</td>
+      <td style="color:var(--text-3)">${(meta.weight * 100).toFixed(0)}%</td>
+      <td class="${verdict === 'PASS' ? 'verdict-pass' : 'verdict-fail'}">${verdict}</td>
+    `;
+    tableBody.appendChild(tr);
+  });
+
+  // Radar chart
+  renderRadar(scores);
+
+  // Issues
+  const issuesEl = document.getElementById('issuesList');
+  issuesEl.innerHTML = '';
+  (judge.top_issues || []).forEach(issue => {
+    const d = document.createElement('div');
+    d.className = 'issue-item';
+    d.innerHTML = `<span class="issue-dot"></span><span>${issue}</span>`;
+    issuesEl.appendChild(d);
+  });
+  if (!judge.top_issues?.length) {
+    issuesEl.innerHTML = '<div style="color:var(--text-2);font-size:0.82rem;padding:8px 0;">検出された課題はありません。</div>';
+  }
+
+  // Recommendations
+  const recsEl = document.getElementById('recsList');
+  recsEl.innerHTML = '';
+  (judge.improvement_recommendations || []).forEach((rec, i) => {
+    const d = document.createElement('div');
+    d.className = 'rec-item';
+    d.innerHTML = `<div class="rec-num">${i + 1}</div><div>${rec}</div>`;
+    recsEl.appendChild(d);
+  });
+  if (!judge.improvement_recommendations?.length) {
+    recsEl.innerHTML = '<div style="color:var(--text-2);font-size:0.82rem;padding:8px 0;">改善提案はありません。</div>';
+  }
+
+  // Improved prompt
+  document.getElementById('improvedPrompt').textContent =
+    judge.improved_prompt_suggestion || '（改善提案なし）';
+
+  // Output samples
+  const outEl   = document.getElementById('outputSamples');
+  const outputs = exec?.outputs || [];
+  document.getElementById('outputCount').textContent = `（${outputs.length}件）`;
+  outEl.innerHTML = '';
+  outputs.forEach((o, i) => {
+    const d = document.createElement('div');
+    d.className = 'output-sample';
+    d.innerHTML = `<div class="output-header"><span>実行 ${i + 1}</span><span>${(o || '').length} 文字</span></div>${escHtml(o || '')}`;
+    outEl.appendChild(d);
+  });
+
+  // Baseline comparison
+  const bc = judge.baseline_comparison;
+  if (bc && (bc.winner !== 'TIE' || bc.score_delta !== 0)) {
+    document.getElementById('baselineCard').style.display = 'block';
+    const delta = bc.score_delta || 0;
+    const dEl   = document.getElementById('baselineDelta');
+    dEl.textContent  = (delta > 0 ? '+' : '') + delta.toFixed(1);
+    dEl.style.color  = delta > 0 ? '#10b981' : delta < 0 ? '#ef4444' : '#94a3b8';
+    document.getElementById('baselineNote').textContent = bc.comparison_note || '';
+    const winnerMap = { CANDIDATE: '候補 勝利', BASELINE: 'ベースライン 勝利', TIE: '引き分け' };
+    document.getElementById('baselineWinner').innerHTML =
+      `<span class="badge ${delta >= 0 ? 'badge-pass' : 'badge-fail'}">${winnerMap[bc.winner] || bc.winner}</span>`;
+  }
+}
+
+// ===================== RADAR CHART =====================
+function renderRadar(scores) {
+  const labels = Object.values(AXIS_META).map(m => m.label);
+  const data   = Object.keys(AXIS_META).map(k => scores[k] ?? 0);
+
+  if (state.radarChart) state.radarChart.destroy();
+  const ctx = document.getElementById('radarChart').getContext('2d');
+  state.radarChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '評価スコア',
+          data,
+          backgroundColor: 'rgba(99,102,241,0.15)',
+          borderColor: '#6366f1',
+          borderWidth: 2,
+          pointBackgroundColor: '#6366f1',
+          pointRadius: 4,
+          pointHoverRadius: 6
+        },
+        {
+          label: '合格ライン (70)',
+          data: labels.map(() => 70),
+          backgroundColor: 'rgba(239,68,68,0.05)',
+          borderColor: 'rgba(239,68,68,0.4)',
+          borderWidth: 1,
+          borderDash: [5, 5],
+          pointRadius: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        r: {
+          min: 0, max: 100,
+          ticks: { display: false, stepSize: 20 },
+          grid: { color: 'rgba(255,255,255,0.08)' },
+          angleLines: { color: 'rgba(255,255,255,0.08)' },
+          pointLabels: { color: '#8b9fd4', font: { size: 11 } }
+        }
+      },
+      plugins: {
+        legend: { labels: { color: '#8b9fd4', font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// ===================== TABS =====================
+function switchTab(tabEl, contentId) {
+  const parent = tabEl.closest('.card');
+  parent.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  parent.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  tabEl.classList.add('active');
+  document.getElementById(contentId).classList.add('active');
+}
+
+// ===================== EXPORT =====================
+function exportReport() {
+  if (!state.judgeResult) { showAlert('まず評価を実行してください。', 'error'); return; }
+  const blob = new Blob([JSON.stringify({
+    execResult:  state.execResult,
+    judgeResult: state.judgeResult,
+    exportedAt:  new Date().toISOString()
+  }, null, 2)], { type: 'application/json' });
+  download(blob, `benchmark-report-${Date.now()}.json`);
+}
+function exportMarkdown() {
+  if (!state.judgeResult) { showAlert('まず評価を実行してください。', 'error'); return; }
+  const j = state.judgeResult;
+  const lines = [
+    `# Prompt Benchmark レポート`,
+    `**ベンチマークID**: ${j.benchmarkId || '—'}  **評価日時**: ${j.judged_at || new Date().toISOString()}`,
+    `**総合スコア**: ${j.composite_score} / 100  [${j.pass_fail}]`,
+    '',
+    '## 評価対象プロンプト',
+    '```', state.execResult?.prompt || j.prompt || '—', '```',
+    '',
+    '## 10軸スコア詳細',
+    '| 評価軸 | スコア | 重み | 判定 |',
+    '|---|---|---|---|',
+    ...Object.entries(AXIS_META).map(([k, m]) =>
+      `| ${m.label} | ${j.scores?.[k] ?? '—'} | ${(m.weight * 100).toFixed(0)}% | ${j.axis_verdicts?.[k] || '—'} |`
+    ),
+    '',
+    '## 検出された課題',
+    ...(j.top_issues || []).map(i => `- ${i}`),
+    '',
+    '## 改善提案',
+    ...(j.improvement_recommendations || []).map((r, i) => `${i + 1}. ${r}`),
+    '',
+    '## 改善済みプロンプト',
+    '```', j.improved_prompt_suggestion || '—', '```',
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+  download(blob, `benchmark-report-${Date.now()}.md`);
+}
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href  = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+function copyImproved() {
+  const txt = document.getElementById('improvedPrompt').textContent;
+  navigator.clipboard.writeText(txt).then(() => showAlert('改善済みプロンプトをコピーしました。', 'success'));
+}
+function useImproved() {
+  const txt = document.getElementById('improvedPrompt').textContent;
+  document.getElementById('promptInput').value = txt;
+  document.getElementById('screen-results').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  showAlert('改善済みプロンプトを入力フォームに反映しました。', 'success');
+}
+
+// ===================== HISTORY =====================
+function saveHistory() {
+  if (!state.judgeResult) { showAlert('保存するデータがありません。', 'error'); return; }
+  state.history.unshift({
+    id:       state.judgeResult.benchmarkId,
+    score:    state.judgeResult.composite_score,
+    passFail: state.judgeResult.pass_fail,
+    prompt:   (state.execResult?.prompt || '').slice(0, 60),
+    savedAt:  new Date().toISOString()
+  });
+  state.history = state.history.slice(0, 20);
+  localStorage.setItem('bm_history', JSON.stringify(state.history));
+  showAlert('履歴に保存しました。', 'success');
+}
+function showHistory() {
+  if (!state.history.length) { showAlert('保存済み履歴がありません。', 'info'); return; }
+  const txt = state.history.map((h, i) =>
+    `${i + 1}. [${h.passFail}] ${h.score}/100 — ${h.prompt}...`
+  ).join('\n');
+  alert('評価履歴\n\n' + txt);
+}
+
+// ===================== UTILS =====================
+function clearAll() {
+  document.getElementById('promptInput').value  = '';
+  document.getElementById('taskDesc').value     = '';
+  document.getElementById('baselineInput').value = '';
+  document.getElementById('artifactSpec').value = '';
+  document.getElementById('screen-results').style.display = 'none';
+  document.getElementById('alertBox').classList.remove('show');
+  state.execResult  = null;
+  state.judgeResult = null;
+  setStep(1);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function setLoading(show, msg = '') {
+  const lb = document.getElementById('loadingBox');
+  lb.classList.toggle('show', show);
+  if (msg) document.getElementById('loadingMsg').textContent = msg;
+  document.getElementById('btnRun').disabled = show;
+}
+function setStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById('step' + i);
+    el.className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+  }
+}
+function showAlert(msg, type = 'info', persist = false) {
+  const el = document.getElementById('alertBox');
+  const iconMap = {
+    error:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    success: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+    info:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+  };
+  el.className = `alert alert-${type} show`;
+  el.innerHTML = `${iconMap[type] || iconMap.info}<span>${msg}</span>`;
+  if (!persist) setTimeout(() => { el.classList.remove('show'); }, 4000);
+}
+function escHtml(s) {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+</script>
+</body>
+</html>
