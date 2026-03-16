@@ -1,0 +1,1996 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prompt Hyperoptimizer v4.1 — Test UI</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg-0: #030712;
+  --bg-1: #080e1a;
+  --bg-2: #0d1526;
+  --bg-3: #111d33;
+  --bg-4: #162240;
+  --border: rgba(79,107,199,0.2);
+  --border-bright: rgba(99,130,255,0.5);
+  --accent-1: #6366f1;
+  --accent-2: #8b5cf6;
+  --accent-3: #06b6d4;
+  --accent-4: #10b981;
+  --accent-warn: #f59e0b;
+  --accent-err: #ef4444;
+  --accent-pink: #ec4899;
+  --text-1: #e8eeff;
+  --text-2: #8b9fd4;
+  --text-3: #4d608a;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-xs: 6px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --glow-blue: 0 0 30px rgba(99,102,241,0.25);
+  --glow-cyan: 0 0 20px rgba(6,182,212,0.2);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg-0);
+  color: var(--text-1);
+  min-height: 100vh;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* ===================== BG EFFECTS ===================== */
+.bg-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+}
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
+  background-size: 52px 52px;
+}
+.bg-glow-1 {
+  position: absolute;
+  top: -200px;
+  left: -200px;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 60%);
+}
+.bg-glow-2 {
+  position: absolute;
+  bottom: -200px;
+  right: -100px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(6,182,212,0.06) 0%, transparent 60%);
+}
+
+/* ===================== HEADER ===================== */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 0 28px;
+  height: 62px;
+  background: rgba(3,7,18,0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+.logo-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-1) 0%, var(--accent-2) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -0.03em;
+  box-shadow: 0 0 16px rgba(99,102,241,0.4);
+  flex-shrink: 0;
+}
+.logo-text { display: flex; flex-direction: column; gap: 1px; }
+.logo-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+.logo-ver {
+  font-size: 0.62rem;
+  color: var(--text-3);
+  letter-spacing: 0.05em;
+}
+.logo-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--accent-1), var(--accent-3));
+  color: #fff;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ===================== LAYOUT ===================== */
+.page-wrap {
+  max-width: 1340px;
+  margin: 0 auto;
+  padding: 26px 22px 60px;
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+}
+@media (max-width: 960px) {
+  .page-wrap { grid-template-columns: 1fr; }
+}
+
+/* ===================== CARD ===================== */
+.card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+}
+.card:hover { border-color: rgba(99,130,255,0.3); }
+.card-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-2);
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.card-icon svg { width: 12px; height: 12px; stroke: var(--accent-1); fill: none; stroke-width: 2; }
+
+/* ===================== FORM ===================== */
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+input[type=text],
+input[type=url],
+textarea,
+select {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-1);
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+  appearance: none;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--border-bright);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+textarea {
+  resize: vertical;
+  min-height: 82px;
+  line-height: 1.6;
+}
+.input-with-btn {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.input-with-btn input { flex: 1; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ===================== TOGGLE ===================== */
+.toggle-section { display: flex; flex-direction: column; gap: 0; }
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+.toggle-row:last-child { border-bottom: none; }
+.toggle-text { flex: 1; }
+.toggle-label { font-size: 0.83rem; font-weight: 600; color: var(--text-1); }
+.toggle-sub { font-size: 0.7rem; color: var(--text-3); margin-top: 2px; }
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch-track {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--bg-4);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  transition: 0.3s;
+}
+.switch-track::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 2px;
+  top: 2px;
+  background: var(--text-3);
+  border-radius: 50%;
+  transition: 0.3s;
+}
+.switch input:checked + .switch-track {
+  background: var(--accent-1);
+  border-color: var(--accent-1);
+  box-shadow: 0 0 10px rgba(99,102,241,0.3);
+}
+.switch input:checked + .switch-track::before {
+  transform: translateX(18px);
+  background: #fff;
+}
+
+/* ===================== BUTTONS ===================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: all 0.2s;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-1) 0%, var(--accent-2) 100%);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+}
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99,102,241,0.45);
+}
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-secondary {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+.btn-secondary:hover { border-color: var(--border-bright); color: var(--text-1); }
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  padding: 5px 12px;
+  font-size: 0.75rem;
+}
+.btn-ghost:hover { color: var(--text-1); border-color: var(--border-bright); }
+.btn-sm { padding: 7px 14px; font-size: 0.78rem; }
+.btn-xs { padding: 4px 10px; font-size: 0.72rem; border-radius: 6px; }
+.btn-full { width: 100%; padding: 14px; font-size: 0.9rem; border-radius: var(--radius-sm); }
+.btn-danger {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.25);
+  color: #ef4444;
+}
+.btn-danger:hover { background: rgba(239,68,68,0.18); }
+
+/* Run button shimmer */
+.btn-run {
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.03em;
+}
+.btn-run::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+  transform: translateX(-100%);
+  transition: transform 0.7s;
+}
+.btn-run:hover::after { transform: translateX(100%); }
+
+/* ===================== STATUS INDICATORS ===================== */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+  flex-shrink: 0;
+}
+.dot.ok { background: var(--accent-4); box-shadow: 0 0 8px var(--accent-4); }
+.dot.err { background: var(--accent-err); box-shadow: 0 0 8px var(--accent-err); }
+.dot.loading {
+  background: var(--accent-warn);
+  box-shadow: 0 0 8px var(--accent-warn);
+  animation: blink 1s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+.conn-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-3);
+}
+.conn-badge.ok {
+  background: rgba(16,185,129,0.1);
+  border-color: rgba(16,185,129,0.35);
+  color: #10b981;
+}
+.conn-badge.err {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.35);
+  color: #ef4444;
+}
+.conn-badge.testing {
+  background: rgba(245,158,11,0.1);
+  border-color: rgba(245,158,11,0.3);
+  color: #f59e0b;
+}
+.webhook-hint {
+  font-size: 0.7rem;
+  color: var(--text-3);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+.webhook-hint code {
+  color: var(--accent-3);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+}
+
+/* ===================== SCENARIO CARDS ===================== */
+.scenario-grid { display: grid; gap: 8px; }
+.sc-card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.sc-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition: background 0.2s;
+}
+.sc-card:hover {
+  border-color: rgba(99,130,255,0.4);
+  background: rgba(99,102,241,0.07);
+}
+.sc-card.active {
+  border-color: var(--accent-1);
+  background: rgba(99,102,241,0.1);
+  box-shadow: 0 0 0 1px rgba(99,102,241,0.3) inset;
+}
+.sc-card.active::before { background: var(--accent-1); }
+.sc-id {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--accent-1);
+  letter-spacing: 0.08em;
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 3px;
+}
+.sc-title {
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.3;
+}
+.sc-desc {
+  font-size: 0.7rem;
+  color: var(--text-3);
+  margin-top: 3px;
+}
+.sc-tags {
+  display: flex;
+  gap: 4px;
+  margin-top: 7px;
+  flex-wrap: wrap;
+}
+.sc-tag {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  letter-spacing: 0.03em;
+}
+.sc-tag.blue { border-color: rgba(6,182,212,0.4); color: var(--accent-3); background: rgba(6,182,212,0.07); }
+.sc-tag.purple { border-color: rgba(139,92,246,0.4); color: var(--accent-2); background: rgba(139,92,246,0.07); }
+.sc-tag.green { border-color: rgba(16,185,129,0.4); color: var(--accent-4); background: rgba(16,185,129,0.07); }
+.sc-tag.yellow { border-color: rgba(245,158,11,0.4); color: var(--accent-warn); background: rgba(245,158,11,0.07); }
+
+/* ===================== PHASE TRACK ===================== */
+.phase-track { display: flex; flex-direction: column; gap: 6px; }
+.phase-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.phase-item::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--text-3);
+  transition: background 0.3s;
+}
+.phase-item.running {
+  border-color: var(--accent-warn);
+  background: rgba(245,158,11,0.06);
+  animation: phasePulse 1.4s ease infinite;
+}
+.phase-item.running::before { background: var(--accent-warn); }
+.phase-item.done { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.06); }
+.phase-item.done::before { background: var(--accent-4); }
+.phase-item.error { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.06); }
+.phase-item.error::before { background: var(--accent-err); }
+.phase-item.skip { opacity: 0.35; }
+
+@keyframes phasePulse {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 0 3px rgba(245,158,11,0.15); }
+}
+
+.phase-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg-4);
+  color: var(--text-3);
+  flex-shrink: 0;
+  letter-spacing: -0.02em;
+  transition: all 0.3s;
+}
+.phase-item.running .phase-num { background: rgba(245,158,11,0.2); color: var(--accent-warn); }
+.phase-item.done .phase-num { background: rgba(16,185,129,0.2); color: var(--accent-4); }
+.phase-item.error .phase-num { background: rgba(239,68,68,0.2); color: var(--accent-err); }
+
+.phase-info { flex: 1; min-width: 0; }
+.phase-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.phase-model {
+  font-size: 0.68rem;
+  color: var(--accent-3);
+  margin-top: 2px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.phase-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 8px;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.phase-badge.wait { background: var(--bg-4); color: var(--text-3); }
+.phase-badge.run { background: rgba(245,158,11,0.18); color: var(--accent-warn); }
+.phase-badge.ok { background: rgba(16,185,129,0.18); color: var(--accent-4); }
+.phase-badge.skip { background: var(--bg-4); color: var(--text-3); }
+.phase-badge.fail { background: rgba(239,68,68,0.18); color: var(--accent-err); }
+
+/* ===================== RESULT AREA ===================== */
+.result-box {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px 18px;
+  font-size: 0.84rem;
+  line-height: 1.75;
+  color: var(--text-1);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-weight: 400;
+}
+.result-box.has-result {
+  border-color: rgba(16,185,129,0.3);
+  background: rgba(16,185,129,0.03);
+}
+.result-meta {
+  display: flex;
+  gap: 18px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.result-meta-item {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.result-meta-item strong { font-weight: 700; }
+
+/* ===================== QUALITY METERS ===================== */
+.meter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.meter-card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.meter-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.meter-bar {
+  height: 5px;
+  background: var(--bg-2);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.meter-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(90deg, var(--accent-1), var(--accent-3));
+}
+.meter-value {
+  font-size: 1rem;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ===================== COST TABLE ===================== */
+.cost-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.cost-table tr { border-bottom: 1px solid var(--border); }
+.cost-table tr:last-child { border-bottom: none; font-weight: 700; }
+.cost-table td { padding: 7px 6px; color: var(--text-2); }
+.cost-table td:last-child { text-align: right; color: var(--text-1); font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+.cost-total { color: var(--accent-4) !important; }
+
+/* ===================== CHECKLIST ===================== */
+.check-list { display: flex; flex-direction: column; gap: 7px; }
+.check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.check-item.pass {
+  border-color: rgba(16,185,129,0.3);
+  background: rgba(16,185,129,0.05);
+}
+.check-item.fail {
+  border-color: rgba(239,68,68,0.3);
+  background: rgba(239,68,68,0.05);
+}
+.check-item.pending { opacity: 0.5; }
+.check-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.check-item.pass .check-mark { background: rgba(16,185,129,0.2); color: var(--accent-4); }
+.check-item.fail .check-mark { background: rgba(239,68,68,0.2); color: var(--accent-err); }
+.check-item.pending .check-mark { background: var(--bg-4); color: var(--text-3); }
+.check-text { flex: 1; }
+.check-detail { font-size: 0.68rem; color: var(--text-3); margin-top: 3px; font-family: 'JetBrains Mono', monospace; }
+
+/* ===================== JSON VIEWER ===================== */
+.json-viewer {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  line-height: 1.7;
+  max-height: 280px;
+  overflow: auto;
+  color: var(--text-2);
+}
+.jk { color: #7dd3fc; }
+.js { color: #86efac; }
+.jn { color: #fde68a; }
+.jb { color: #f9a8d4; }
+
+/* ===================== TABS ===================== */
+.tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-3);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  margin-bottom: 16px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 0.77rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--text-3);
+  font-family: inherit;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+}
+.tab-btn.active {
+  background: var(--bg-2);
+  color: var(--text-1);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.tab-btn:hover:not(.active) { color: var(--text-2); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ===================== COPY BUTTON ===================== */
+.copy-btn {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 11px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--bg-4);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-family: inherit;
+  transition: all 0.2s;
+  letter-spacing: 0.03em;
+}
+.copy-btn:hover { border-color: var(--border-bright); color: var(--text-1); }
+
+/* ===================== SECTION HEADER ===================== */
+.sec-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.sec-title {
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ===================== TIMER ===================== */
+.elapsed {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ===================== HISTORY ===================== */
+.history-item {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 7px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg-3);
+  position: relative;
+  overflow: hidden;
+}
+.history-item::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent-1);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.history-item:hover {
+  border-color: rgba(99,130,255,0.4);
+  background: rgba(99,102,241,0.06);
+}
+.history-item:hover::before { opacity: 1; }
+.hi-title {
+  font-size: 0.81rem;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hi-meta {
+  font-size: 0.68rem;
+  color: var(--text-3);
+  margin-top: 3px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ===================== EMPTY STATE ===================== */
+.empty-state {
+  text-align: center;
+  padding: 36px 20px;
+  color: var(--text-3);
+}
+.empty-icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 14px;
+  border-radius: 12px;
+  background: var(--bg-4);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.empty-icon svg { width: 22px; height: 22px; stroke: var(--text-3); fill: none; stroke-width: 1.5; }
+.empty-state p { font-size: 0.82rem; }
+
+/* ===================== DIVIDER ===================== */
+.divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+/* ===================== SPINNER ===================== */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===================== TOAST ===================== */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 9999;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 18px;
+  font-size: 0.83rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+}
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+.toast.ok {
+  border-color: rgba(16,185,129,0.4);
+  color: #10b981;
+}
+.toast.err {
+  border-color: rgba(239,68,68,0.4);
+  color: #ef4444;
+}
+.toast-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.toast.ok .toast-dot { background: var(--accent-4); }
+.toast.err .toast-dot { background: var(--accent-err); }
+
+/* ===================== SUMMARY STAT ===================== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  text-align: center;
+}
+.stat-card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 8px;
+  transition: border-color 0.2s;
+}
+.stat-card:hover { border-color: rgba(99,130,255,0.3); }
+.stat-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+.stat-label {
+  font-size: 0.65rem;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.stat-sub {
+  margin-top: 8px;
+  font-size: 0.73rem;
+  color: var(--text-3);
+  line-height: 1.5;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ===================== SCROLLBAR ===================== */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-2); }
+::-webkit-scrollbar-thumb { background: rgba(99,130,255,0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(99,130,255,0.5); }
+
+/* ===================== FOOTER ===================== */
+.footer {
+  margin-top: 48px;
+  padding: 22px 28px;
+  border-top: 1px solid var(--border);
+  background: rgba(3,7,18,0.7);
+  backdrop-filter: blur(12px);
+  text-align: center;
+}
+.footer-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.footer-logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -0.03em;
+  box-shadow: 0 0 12px rgba(99,102,241,0.3);
+}
+.footer-info { text-align: left; }
+.footer-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.footer-sub {
+  font-size: 0.65rem;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  margin-top: 1px;
+}
+.footer-sep {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  margin: 0 2px;
+}
+.footer-tagline {
+  font-size: 0.68rem;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+}
+</style>
+</head>
+<body>
+
+<div class="bg-wrap">
+  <div class="bg-grid"></div>
+  <div class="bg-glow-1"></div>
+  <div class="bg-glow-2"></div>
+</div>
+
+<!-- ==================== HEADER ==================== -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-mark">PH</div>
+    <div class="logo-text">
+      <div class="logo-name">Prompt Hyperoptimizer</div>
+      <div class="logo-ver">v4.1 · Test UI</div>
+    </div>
+    <span class="logo-badge">Full Optimize</span>
+  </div>
+  <div class="header-right">
+    <span id="conn-status" class="conn-badge">未接続</span>
+    <button class="btn btn-ghost btn-sm" onclick="clearHistory()" title="履歴を消去">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+        <polyline points="3 6 5 6 21 6"></polyline>
+        <path d="M19 6l-1 14H6L5 6"></path>
+        <path d="M10 11v6M14 11v6"></path>
+      </svg>
+      履歴消去
+    </button>
+  </div>
+</header>
+
+<!-- ==================== MAIN ==================== -->
+<div class="page-wrap">
+
+  <!-- ========== LEFT PANEL ========== -->
+  <div>
+
+    <!-- n8n 接続設定 -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+          </div>
+          n8n 接続設定
+        </div>
+      </div>
+      <div class="field">
+        <label>n8n ベース URL</label>
+        <div class="input-with-btn">
+          <input type="url" id="n8n_base_url"
+            placeholder="https://n8n.example.com"
+            oninput="onUrlChange()"
+            value="">
+          <button class="btn btn-secondary btn-sm" onclick="testConnection()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+            接続確認
+          </button>
+        </div>
+        <div class="webhook-hint">
+          Webhook: <code id="webhook-url-display">—</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- テストシナリオ選択 -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          </div>
+          テストシナリオ
+        </div>
+      </div>
+      <div class="scenario-grid" id="scenario-grid"></div>
+    </div>
+
+    <!-- カスタム入力 -->
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-title">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+          カスタム入力
+        </div>
+      </div>
+      <div class="field">
+        <label>テーマ・トピック</label>
+        <textarea id="f_topic" rows="2" placeholder="例: SNS投稿のキャッチコピー作成"></textarea>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>対象プラットフォーム</label>
+          <select id="f_platform">
+            <option value="chatgpt">ChatGPT</option>
+            <option value="claude">Claude</option>
+            <option value="gemini">Gemini</option>
+            <option value="midjourney">Midjourney</option>
+            <option value="copilot">Copilot</option>
+            <option value="general">汎用</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>出力言語</label>
+          <select id="f_language">
+            <option value="ja">日本語</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>対象ユーザー</label>
+          <input type="text" id="f_audience" placeholder="例: マーケター">
+        </div>
+        <div class="field">
+          <label>トーン</label>
+          <select id="f_tone">
+            <option value="professional">プロフェッショナル</option>
+            <option value="friendly">フレンドリー</option>
+            <option value="formal">フォーマル</option>
+            <option value="casual">カジュアル</option>
+            <option value="creative">クリエイティブ</option>
+          </select>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="toggle-section">
+        <div class="toggle-row">
+          <div class="toggle-text">
+            <div class="toggle-label">AGoT 推論</div>
+            <div class="toggle-sub">Adaptive Graph-of-Thought (Phase 1b) を有効化</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="f_agot" checked>
+            <span class="switch-track"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <div class="toggle-text">
+            <div class="toggle-label">DSPy 最適化</div>
+            <div class="toggle-sub">Phase 5 を追加 (+$0.04 / +約20秒)</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="f_dspy">
+            <span class="switch-track"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 実行ボタン -->
+    <button class="btn btn-primary btn-full btn-run" id="run-btn" onclick="runTest()">
+      <span id="run-icon">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </span>
+      <span id="run-label">テスト実行</span>
+    </button>
+
+    <!-- 実行履歴 -->
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-hd">
+        <div class="card-title">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 8v4l3 3M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
+          </div>
+          実行履歴
+        </div>
+      </div>
+      <div id="history-list">
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <p>実行履歴はありません</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /LEFT PANEL -->
+
+  <!-- ========== RIGHT PANEL ========== -->
+  <div>
+
+    <!-- フェーズ進捗 -->
+    <div class="card">
+      <div class="sec-hd">
+        <div class="card-title">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          パイプライン実行状況
+        </div>
+        <span class="elapsed" id="elapsed-timer">—</span>
+      </div>
+      <div class="phase-track" id="phase-track"></div>
+    </div>
+
+    <!-- 結果表示エリア -->
+    <div class="card">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('result')">最適化プロンプト</button>
+        <button class="tab-btn" onclick="switchTab('quality')">品質スコア</button>
+        <button class="tab-btn" onclick="switchTab('cost')">コスト</button>
+        <button class="tab-btn" onclick="switchTab('checklist')">チェックリスト</button>
+        <button class="tab-btn" onclick="switchTab('raw')">RAW JSON</button>
+      </div>
+
+      <!-- 最適化プロンプト -->
+      <div id="tab-result" class="tab-pane active">
+        <div class="sec-hd">
+          <div class="sec-title">生成プロンプト</div>
+          <button class="copy-btn" onclick="copyResult()">コピー</button>
+        </div>
+        <div id="result-prompt" class="result-box">
+          <span style="color:var(--text-3)">テストを実行すると、最適化されたプロンプトがここに表示されます。</span>
+        </div>
+        <div class="result-meta" id="result-meta">
+          <div class="result-meta-item">戦略: <strong id="result-strategy" style="color:var(--accent-3)">—</strong></div>
+          <div class="result-meta-item">複雑度: <strong id="result-complexity" style="color:var(--accent-warn)">—</strong></div>
+          <div class="result-meta-item">バリアント: <strong id="result-variants" style="color:var(--accent-2)">—</strong></div>
+        </div>
+      </div>
+
+      <!-- 品質スコア -->
+      <div id="tab-quality" class="tab-pane">
+        <div class="meter-grid" id="quality-meters">
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+            </div>
+            <p>テスト実行後に品質スコアが表示されます</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- コスト -->
+      <div id="tab-cost" class="tab-pane">
+        <table class="cost-table" id="cost-table">
+          <tbody>
+            <tr>
+              <td colspan="2" style="text-align:center;color:var(--text-3);padding:24px">
+                テスト実行後にコスト内訳が表示されます
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- チェックリスト -->
+      <div id="tab-checklist" class="tab-pane">
+        <div class="check-list" id="check-list">
+          <div class="empty-state">
+            <div class="empty-icon">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <p>テスト実行後にチェック結果が表示されます</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- RAW JSON -->
+      <div id="tab-raw" class="tab-pane">
+        <div class="sec-hd">
+          <div class="sec-title">RAW JSON</div>
+          <button class="copy-btn" onclick="copyRaw()">コピー</button>
+        </div>
+        <div id="raw-json" class="json-viewer">
+          <span style="color:var(--text-3)">JSON データ表示エリア</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- サマリーカード -->
+    <div class="card" id="summary-card" style="display:none">
+      <div class="card-hd">
+        <div class="card-title">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          実行サマリー
+        </div>
+      </div>
+      <div id="summary-content"></div>
+    </div>
+
+  </div><!-- /RIGHT PANEL -->
+</div><!-- /page-wrap -->
+
+<!-- ==================== FOOTER ==================== -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-logo">TS</div>
+    <div class="footer-info">
+      <div class="footer-name">Technical Solution Inc</div>
+      <div class="footer-sub">Prompt HyperOptimizer v4.1</div>
+    </div>
+    <div class="footer-sep"></div>
+    <div class="footer-tagline">AI Workflow Automation Platform</div>
+  </div>
+</footer>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-dot"></div>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ===== SCENARIOS ==============================================
+const SCENARIOS = [
+  {
+    id: 'T01',
+    title: '基本フロー',
+    desc: 'Phase 0→4 標準実行',
+    topic: 'SNS投稿のキャッチコピーを作成してください',
+    platform: 'chatgpt', audience: '一般ユーザー', tone: 'professional',
+    language: 'ja', enableAGoT: false, enableDSPy: false,
+    tags: [{label:'SoT', cls:'blue'},{label:'標準', cls:'green'},{label:'検証用', cls:'yellow'}],
+    expect: { strategy: 'skeleton_of_thought', minCost: 0.001, maxCost: 0.15, hasPrompt: true }
+  },
+  {
+    id: 'T02',
+    title: 'AGoT 推論モード',
+    desc: 'Phase 1b AGoT を有効化',
+    topic: 'KPI改善のための施策を考えてください',
+    platform: 'general', audience: 'ビジネスアナリスト', tone: 'formal',
+    language: 'ja', enableAGoT: true, enableDSPy: false,
+    tags: [{label:'AGoT', cls:'purple'},{label:'推論強化', cls:'yellow'}],
+    expect: { strategy: 'agot', minCost: 0.002, maxCost: 0.20, hasPrompt: true }
+  },
+  {
+    id: 'T03',
+    title: 'SoT + Claude',
+    desc: 'AGoT無効でSoTを確認',
+    topic: 'AI活用事例を教えてください',
+    platform: 'claude', audience: '経営層', tone: 'formal',
+    language: 'ja', enableAGoT: false, enableDSPy: false,
+    tags: [{label:'SoT', cls:'blue'},{label:'Claude', cls:'purple'}],
+    expect: { strategy: 'skeleton_of_thought', minCost: 0.001, maxCost: 0.15, hasPrompt: true }
+  },
+  {
+    id: 'T04',
+    title: '画像生成プロンプト',
+    desc: 'Midjourney向け英語出力',
+    topic: '未来の都市風景を描いてください',
+    platform: 'midjourney', audience: 'デザイナー', tone: 'creative',
+    language: 'en', enableAGoT: false, enableDSPy: false,
+    tags: [{label:'Midjourney', cls:'purple'},{label:'EN', cls:'blue'},{label:'画像生成', cls:'green'}],
+    expect: { strategy: 'skeleton_of_thought', minCost: 0.001, maxCost: 0.15, hasPrompt: true }
+  },
+  {
+    id: 'T05',
+    title: 'Constitutional AI',
+    desc: 'Phase 3 憲法スコア ≥70 を確認',
+    topic: 'エシカルなAI活用指針を作成してください',
+    platform: 'chatgpt', audience: '企業担当者', tone: 'professional',
+    language: 'ja', enableAGoT: true, enableDSPy: false,
+    tags: [{label:'Constitutional', cls:'yellow'},{label:'倫理', cls:'green'}],
+    expect: { minConstitutional: 70, minCost: 0.002, maxCost: 0.20, hasPrompt: true }
+  },
+  {
+    id: 'T06',
+    title: 'DSPy フルモード',
+    desc: 'enableDSPy=true で Phase 5 を実行',
+    topic: 'Python入門講座のカリキュラムを作成してください',
+    platform: 'copilot', audience: 'プログラミング初心者', tone: 'professional',
+    language: 'ja', enableAGoT: true, enableDSPy: true,
+    tags: [{label:'DSPy', cls:'purple'},{label:'フル', cls:'yellow'},{label:'全Phase', cls:'yellow'}],
+    expect: { hasDSPy: true, minCost: 0.05, maxCost: 0.30, hasPrompt: true }
+  },
+  {
+    id: 'T07',
+    title: '英語出力テスト',
+    desc: 'language=en で英語プロンプト生成',
+    topic: 'Write a compelling product launch email for a new AI tool',
+    platform: 'chatgpt', audience: 'Marketing team', tone: 'friendly',
+    language: 'en', enableAGoT: false, enableDSPy: false,
+    tags: [{label:'English', cls:'blue'},{label:'メール', cls:'green'}],
+    expect: { strategy: 'skeleton_of_thought', minCost: 0.001, maxCost: 0.15, hasPrompt: true }
+  },
+  {
+    id: 'T08',
+    title: 'コスト追跡テスト',
+    desc: 'cost_per_phase の整合性を確認',
+    topic: 'Gemini APIの活用方法を説明してください',
+    platform: 'gemini', audience: '開発者', tone: 'professional',
+    language: 'ja', enableAGoT: true, enableDSPy: false,
+    tags: [{label:'コスト検証', cls:'green'},{label:'Gemini', cls:'blue'}],
+    expect: { minCost: 0.001, maxCost: 0.20, hasPrompt: true, checkCostBreakdown: true }
+  }
+];
+
+// ===== STATE ==============================================
+const STATE = {
+  n8nBase: localStorage.getItem('n8n_base_url') || 'https://n8n.srv1443093.hstgr.cloud',
+  running: false,
+  lastResult: null,
+  history: JSON.parse(localStorage.getItem('v4_test_history') || '[]'),
+  selectedScenario: null,
+  activeTab: 'result',
+  startTime: null,
+  timerInterval: null
+};
+
+// ===== INIT ==============================================
+window.onload = function() {
+  document.getElementById('n8n_base_url').value = STATE.n8nBase;
+  updateWebhookDisplay();
+  renderScenarios();
+  renderHistory();
+  renderPhaseTrack(null);
+};
+
+// ===== URL CONFIG ==============================================
+function onUrlChange() {
+  const val = document.getElementById('n8n_base_url').value.replace(/\/+$/, '');
+  STATE.n8nBase = val;
+  localStorage.setItem('n8n_base_url', val);
+  updateWebhookDisplay();
+  const badge = document.getElementById('conn-status');
+  badge.className = 'conn-badge';
+  badge.textContent = '未接続';
+}
+
+function updateWebhookDisplay() {
+  const url = STATE.n8nBase ? STATE.n8nBase + '/webhook/prompt-generate' : '—';
+  document.getElementById('webhook-url-display').textContent = url;
+}
+
+async function testConnection() {
+  const badge = document.getElementById('conn-status');
+  badge.className = 'conn-badge testing';
+  badge.textContent = '確認中...';
+  try {
+    const res = await fetch(STATE.n8nBase + '/webhook/prompt-generate', {
+      method: 'GET', signal: AbortSignal.timeout(6000)
+    });
+    const text = await res.text();
+    if (text.includes('POST') || text.includes('webhook') || res.status === 404 || res.status === 200) {
+      badge.className = 'conn-badge ok';
+      badge.textContent = '接続 OK';
+      showToast('Webhook エンドポイントを確認しました (POST 受付)', 'ok');
+    } else {
+      throw new Error('予期しないレスポンス');
+    }
+  } catch(e) {
+    if (e.message && e.message.toLowerCase().includes('post')) {
+      badge.className = 'conn-badge ok';
+      badge.textContent = '接続 OK';
+    } else {
+      badge.className = 'conn-badge err';
+      badge.textContent = '接続失敗';
+      showToast('接続エラー: ' + (e.message || '不明'), 'err');
+    }
+  }
+}
+
+// ===== SCENARIOS ==============================================
+function renderScenarios() {
+  const grid = document.getElementById('scenario-grid');
+  grid.innerHTML = SCENARIOS.map(s => `
+    <div class="sc-card ${STATE.selectedScenario === s.id ? 'active' : ''}"
+         onclick="selectScenario('${s.id}')">
+      <div class="sc-id">${s.id}</div>
+      <div class="sc-title">${s.title}</div>
+      <div class="sc-desc">${s.desc}</div>
+      <div class="sc-tags">${s.tags.map(t => `<span class="sc-tag ${t.cls}">${t.label}</span>`).join('')}</div>
+    </div>
+  `).join('');
+}
+
+function selectScenario(id) {
+  const s = SCENARIOS.find(x => x.id === id);
+  if (!s) return;
+  STATE.selectedScenario = id;
+  document.getElementById('f_topic').value = s.topic;
+  document.getElementById('f_platform').value = s.platform;
+  document.getElementById('f_audience').value = s.audience || '';
+  document.getElementById('f_tone').value = s.tone || 'professional';
+  document.getElementById('f_language').value = s.language || 'ja';
+  document.getElementById('f_agot').checked = s.enableAGoT;
+  document.getElementById('f_dspy').checked = s.enableDSPy;
+  renderScenarios();
+  showToast(`${s.id}: ${s.title} を選択しました`, 'ok');
+}
+
+// ===== PHASE TRACK ==============================================
+const PHASES = [
+  { id:'ph0',  label:'PH0', name:'Phase 0 — DR-CoT',          desc:'深層推論・タスク分析',        model:'Gemini 2.5 Flash' },
+  { id:'ph1a', label:'1a',  name:'Phase 1a — SoT',             desc:'Skeleton-of-Thought 骨格生成', model:'Gemini 2.5 Pro'  },
+  { id:'ph1b', label:'1b',  name:'Phase 1b — AGoT',            desc:'グラフ構造推論',               model:'Gemini 2.5 Pro'  },
+  { id:'ph1c', label:'1c',  name:'Phase 1c — バリアント生成',   desc:'3×候補生成',                  model:'Gemini 2.5 Pro'  },
+  { id:'ph2',  label:'PH2', name:'Phase 2 — Adv-CoT+CISC',     desc:'高度推論＋競合選択',           model:'Claude Sonnet 4.5'},
+  { id:'ph3',  label:'PH3', name:'Phase 3 — Constitutional AI','desc':'倫理スコア評価 (7軸)',        model:'Claude Sonnet 4.5'},
+  { id:'ph4',  label:'PH4', name:'Phase 4 — Platform Adapt',   desc:'プラットフォーム最適化',       model:'GPT-5'           },
+  { id:'ph5',  label:'PH5', name:'Phase 5 — DSPy MIPROv2',     desc:'ベイズ最適化 (オプション)',     model:'GPT-5'           },
+];
+
+function renderPhaseTrack(statuses) {
+  const track = document.getElementById('phase-track');
+  track.innerHTML = PHASES.map(ph => {
+    const st = statuses ? statuses[ph.id] : 'wait';
+    const badgeMap = { wait:'wait', running:'run', done:'ok', skip:'skip', error:'fail' };
+    const labelMap = { wait:'待機', running:'実行中', done:'完了', skip:'スキップ', error:'エラー' };
+    return `
+      <div class="phase-item ${st}" id="phase-${ph.id}">
+        <div class="phase-num">${ph.label}</div>
+        <div class="phase-info">
+          <div class="phase-name">${ph.name}</div>
+          <div class="phase-model">${ph.model} · <span style="color:var(--text-3)">${ph.desc}</span></div>
+        </div>
+        <span class="phase-badge ${badgeMap[st] || 'wait'}">${labelMap[st] || '待機'}</span>
+      </div>`;
+  }).join('');
+}
+
+function setPhaseStatus(phId, status) {
+  const el = document.getElementById('phase-' + phId);
+  if (!el) return;
+  el.className = 'phase-item ' + status;
+  const badge = el.querySelector('.phase-badge');
+  const labelMap = { wait:'待機', running:'実行中', done:'完了', skip:'スキップ', error:'エラー' };
+  const badgeMap = { wait:'wait', running:'run', done:'ok', skip:'skip', error:'fail' };
+  badge.className = 'phase-badge ' + (badgeMap[status] || 'wait');
+  badge.textContent = labelMap[status] || '待機';
+}
+
+// ===== TIMER ==============================================
+function startTimer() {
+  STATE.startTime = Date.now();
+  STATE.timerInterval = setInterval(() => {
+    const elapsed = ((Date.now() - STATE.startTime) / 1000).toFixed(1);
+    document.getElementById('elapsed-timer').textContent = elapsed + 's';
+  }, 100);
+}
+function stopTimer() {
+  clearInterval(STATE.timerInterval);
+  const elapsed = ((Date.now() - STATE.startTime) / 1000).toFixed(1);
+  document.getElementById('elapsed-timer').textContent = elapsed + 's (完了)';
+  return parseFloat(elapsed);
+}
+
+// ===== RUN TEST ==============================================
+async function runTest() {
+  if (STATE.running) return;
+  if (!STATE.n8nBase) { showToast('n8n URL を入力してください', 'err'); return; }
+  const topic = document.getElementById('f_topic').value.trim();
+  if (!topic) { showToast('テーマを入力してください', 'err'); return; }
+
+  STATE.running = true;
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  document.getElementById('run-icon').innerHTML = '<div class="spinner"></div>';
+  document.getElementById('run-label').textContent = '実行中...';
+
+  renderPhaseTrack({ph0:'wait',ph1a:'wait',ph1b:'wait',ph1c:'wait',ph2:'wait',ph3:'wait',ph4:'wait',ph5:'wait'});
+  document.getElementById('result-prompt').className = 'result-box';
+  document.getElementById('result-prompt').innerHTML = '<span style="color:var(--text-3)">処理中...</span>';
+  document.getElementById('quality-meters').innerHTML =
+    '<div class="empty-state" style="grid-column:1/-1"><div class="spinner" style="margin:auto"></div></div>';
+  document.getElementById('summary-card').style.display = 'none';
+
+  const payload = {
+    topic,
+    platform: document.getElementById('f_platform').value,
+    audience: document.getElementById('f_audience').value || 'general',
+    tone: document.getElementById('f_tone').value,
+    language: document.getElementById('f_language').value,
+    enableAGoT: document.getElementById('f_agot').checked,
+    enableDSPy: document.getElementById('f_dspy').checked
+  };
+
+  startTimer();
+  animatePhases(payload.enableAGoT, payload.enableDSPy);
+
+  let data = null;
+  let error = null;
+
+  try {
+    const res = await fetch(STATE.n8nBase + '/webhook/prompt-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(120000)
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errText}`);
+    }
+    data = await res.json();
+  } catch(e) {
+    error = e;
+  }
+
+  const elapsed = stopTimer();
+  STATE.running = false;
+  btn.disabled = false;
+  document.getElementById('run-icon').innerHTML =
+    '<svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+  document.getElementById('run-label').textContent = 'テスト実行';
+
+  if (error) {
+    PHASES.forEach(ph => {
+      const el = document.getElementById('phase-' + ph.id);
+      if (el && el.classList.contains('running')) setPhaseStatus(ph.id, 'error');
+    });
+    showToast('エラー: ' + error.message, 'err');
+    renderChecklist(null, payload, error);
+    return;
+  }
+
+  updatePhasesFromResult(data, payload);
+  STATE.lastResult = data;
+  renderResult(data);
+  renderQuality(data);
+  renderCost(data);
+  renderChecklist(data, payload, null);
+  renderRawJson(data);
+  renderSummary(data, elapsed, payload);
+  saveHistory({ payload, data, elapsed, ts: new Date().toISOString(), scenario: STATE.selectedScenario });
+  showToast('実行完了 (' + elapsed + 's)', 'ok');
+  switchTab('result');
+}
+
+function animatePhases(enableAGoT, enableDSPy) {
+  const seq = [
+    [0,     'ph0',                          'running'],
+    [800,   'ph0',                          'done'],
+    [900,   enableAGoT ? 'ph1b' : 'ph1a',  'running'],
+    [900,   enableAGoT ? 'ph1a' : 'ph1b',  'skip'],
+    [2000,  enableAGoT ? 'ph1b' : 'ph1a',  'done'],
+    [2100,  'ph1c',  'running'],
+    [3500,  'ph1c',  'done'],
+    [3600,  'ph2',   'running'],
+    [6000,  'ph2',   'done'],
+    [6100,  'ph3',   'running'],
+    [8000,  'ph3',   'done'],
+    [8100,  'ph4',   'running'],
+    [10000, 'ph4',   'done'],
+    [10100, 'ph5',   enableDSPy ? 'running' : 'skip'],
+    enableDSPy ? [13000, 'ph5', 'done'] : null,
+  ].filter(Boolean);
+  seq.forEach(([delay, phId, status]) => setTimeout(() => setPhaseStatus(phId, status), delay));
+}
+
+function updatePhasesFromResult(data, payload) {
+  const phases = data.pipeline?.phases_executed || [];
+  const strategy = data.pipeline?.strategy_used;
+  setPhaseStatus('ph0',  phases.includes('phase0_dr_cot')        ? 'done' : 'skip');
+  setPhaseStatus('ph1a', strategy === 'skeleton_of_thought'       ? 'done' : 'skip');
+  setPhaseStatus('ph1b', strategy === 'agot'                      ? 'done' : 'skip');
+  setPhaseStatus('ph1c', phases.includes('phase1c_multi_variant') ? 'done' : 'skip');
+  setPhaseStatus('ph2',  phases.includes('phase2_cisc_advcot')    ? 'done' : 'skip');
+  setPhaseStatus('ph3',  phases.includes('phase3_constitutional') ? 'done' : 'skip');
+  setPhaseStatus('ph4',  phases.includes('phase4_gpt5_platform')  ? 'done' : 'skip');
+  setPhaseStatus('ph5',  phases.includes('phase5_dspy')           ? 'done' : 'skip');
+}
+
+// ===== RENDER RESULT ==============================================
+function renderResult(data) {
+  const prompt = data.final_prompt || '(プロンプト生成なし)';
+  const el = document.getElementById('result-prompt');
+  el.className = 'result-box has-result';
+  el.textContent = prompt;
+  document.getElementById('result-strategy').textContent = data.pipeline?.strategy_used || '—';
+  document.getElementById('result-complexity').textContent = data.pipeline?.task_complexity || '—';
+  document.getElementById('result-variants').textContent = data.pipeline?.variants_generated || '—';
+}
+
+function renderQuality(data) {
+  const q = data.quality || {};
+  const meters = [
+    { label: '総合スコア',     val: q.quality_prediction?.overall     },
+    { label: '明確性',         val: q.quality_prediction?.clarity     },
+    { label: '有効性',         val: q.quality_prediction?.effectiveness },
+    { label: 'プラットフォーム適合', val: q.quality_prediction?.platform_fit },
+    { label: 'Constitutional', val: q.constitutional_score            },
+    { label: 'CISC 信頼度',    val: q.winner_confidence ? Math.round(q.winner_confidence * 100) : null },
+    { label: 'AGoT 確信度',    val: q.agot_confidence   ? Math.round(q.agot_confidence * 100)   : null },
+    { label: 'DSPy スコア',    val: q.dspy_score                      },
+  ].filter(m => m.val != null);
+
+  if (meters.length === 0) {
+    document.getElementById('quality-meters').innerHTML =
+      '<div class="empty-state" style="grid-column:1/-1">' +
+      '<div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div>' +
+      '<p>品質データがありません</p></div>';
+    return;
+  }
+
+  document.getElementById('quality-meters').innerHTML = meters.map(m => {
+    const color = m.val >= 80 ? '#10b981' : m.val >= 60 ? '#f59e0b' : '#ef4444';
+    return `
+      <div class="meter-card">
+        <div class="meter-label">${m.label}</div>
+        <div class="meter-bar"><div class="meter-fill" style="width:${m.val}%;background:${color}"></div></div>
+        <div class="meter-value" style="color:${color}">${m.val}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderCost(data) {
+  const c = data.cost || {};
+  const bp = c.cost_per_phase || {};
+  const rows = [
+    ['Phase 0 — DR-CoT (Flash)',          bp.phase0_dr_cot],
+    ['Phase 1a — SoT (Flash×N)',           bp.phase1a_sot],
+    ['Phase 1b — AGoT (Pro)',              bp.phase1b_agot],
+    ['Phase 1c — Variants (Pro×3)',        bp.phase1c_variants],
+    ['Phase 2 — CISC (Claude)',            bp.phase2_cisc],
+    ['Phase 3 — Constitutional (Claude)', bp.phase3_constitutional],
+    ['Phase 4 — Platform (GPT-5)',         bp.phase4_platform],
+    ['Phase 5 — DSPy (GPT-5)',             bp.phase5_dspy],
+  ].filter(([, v]) => v != null && v > 0);
+
+  const total_usd = c.total_usd || 0;
+  const total_jpy = c.total_jpy || Math.round(total_usd * 150);
+
+  document.getElementById('cost-table').innerHTML = `<tbody>
+    ${rows.map(([label, val]) => `
+      <tr><td>${label}</td><td>$${val.toFixed(5)} (¥${Math.round(val*150)})</td></tr>
+    `).join('')}
+    <tr style="border-top:2px solid var(--border)">
+      <td>合計</td>
+      <td class="cost-total">$${total_usd.toFixed(5)} (¥${total_jpy})</td>
+    </tr>
+  </tbody>`;
+}
+
+function renderChecklist(data, payload, error) {
+  const checks = [];
+
+  if (error) {
+    checks.push({ text:'HTTP リクエスト', detail: error.message, status:'fail' });
+    document.getElementById('check-list').innerHTML = checks.map(renderCheckItem).join('');
+    return;
+  }
+
+  checks.push({
+    text: 'ステータス: success',
+    detail: `返却値: ${data.status}`,
+    status: data.status === 'success' ? 'pass' : 'fail'
+  });
+  checks.push({
+    text: 'final_prompt が存在する',
+    detail: data.final_prompt ? `${data.final_prompt.length}文字` : 'undefined',
+    status: data.final_prompt ? 'pass' : 'fail'
+  });
+  checks.push({
+    text: 'runId が返却された',
+    detail: data.runId || '—',
+    status: data.runId ? 'pass' : 'fail'
+  });
+
+  const phases = data.pipeline?.phases_executed || [];
+  checks.push({
+    text: 'Phase0 DR-CoT 実行済み',
+    detail: phases.includes('phase0_dr_cot') ? '実行完了' : '未実行 / スキップ',
+    status: phases.includes('phase0_dr_cot') ? 'pass' : 'fail'
+  });
+
+  const strategy = data.pipeline?.strategy_used;
+  checks.push({
+    text: `戦略: ${strategy || '—'}`,
+    detail: payload.enableAGoT ? '(AGoT: agot / skeleton_of_thought)' : '(AGoT無効: skeleton_of_thought)',
+    status: strategy ? 'pass' : 'fail'
+  });
+
+  const variants = data.pipeline?.variants_generated || 0;
+  checks.push({
+    text: `バリアント生成: ${variants}件`,
+    detail: '期待値: 3件 (最高/バランス/創造)',
+    status: variants >= 1 ? 'pass' : 'fail'
+  });
+
+  const constScore = data.quality?.constitutional_score;
+  if (constScore != null) {
+    checks.push({
+      text: `Constitutional Score: ${constScore}/100`,
+      detail: constScore >= 70 ? '合格 (≥70)' : '不合格 (<70)',
+      status: constScore >= 70 ? 'pass' : 'fail'
+    });
+  }
+
+  const overall = data.quality?.quality_prediction?.overall;
+  if (overall != null) {
+    checks.push({
+      text: `品質スコア: ${overall}/100`,
+      detail: overall >= 70 ? '合格 (≥70)' : '要改善 (<70)',
+      status: overall >= 70 ? 'pass' : 'fail'
+    });
+  }
+
+  if (payload.enableDSPy) {
+    const hasDSPy = phases.includes('phase5_dspy');
+    checks.push({
+      text: 'Phase5 DSPy 実行済み',
+      detail: hasDSPy ? 'DSPy MIPROv2 完了' : 'DSPy 未実行 (enableDSPy=true なのに)',
+      status: hasDSPy ? 'pass' : 'fail'
+    });
+  }
+
+  const sc = SCENARIOS.find(s => s.id === STATE.selectedScenario);
+  const totalUsd = data.cost?.total_usd || 0;
+  if (sc?.expect) {
+    const inRange = totalUsd >= sc.expect.minCost && totalUsd <= sc.expect.maxCost;
+    checks.push({
+      text: `コスト: $${totalUsd.toFixed(5)}`,
+      detail: `期待範囲: $${sc.expect.minCost} 〜 $${sc.expect.maxCost}`,
+      status: inRange ? 'pass' : 'fail'
+    });
+  }
+
+  const sumPhases = Object.values(bp = data.cost?.cost_per_phase || {}).reduce((a,b) => a + (b||0), 0);
+  const totalCost = data.cost?.total_usd || 0;
+  const costOk = Math.abs(sumPhases - totalCost) < 0.001;
+  checks.push({
+    text: 'コスト集計整合性',
+    detail: `フェーズ合計: $${sumPhases.toFixed(5)} / 合計: $${totalCost.toFixed(5)}`,
+    status: costOk ? 'pass' : 'fail'
+  });
+
+  const passCount = checks.filter(c => c.status === 'pass').length;
+  const total = checks.length;
+
+  document.getElementById('check-list').innerHTML =
+    `<div style="margin-bottom:12px;font-size:.85rem;font-weight:700;color:${passCount===total?'#10b981':'#f59e0b'}">
+      ${passCount}/${total} チェック通過 ${passCount===total?'— ALL PASS':''}
+    </div>` +
+    checks.map(renderCheckItem).join('');
+}
+
+function renderCheckItem(c) {
+  const markMap = { pass:'OK', fail:'NG', pending:'—' };
+  return `<div class="check-item ${c.status}">
+    <div class="check-mark">${markMap[c.status]||'—'}</div>
+    <div class="check-text">
+      ${c.text}
+      ${c.detail ? `<div class="check-detail">${c.detail}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderRawJson(data) {
+  document.getElementById('raw-json').innerHTML = syntaxHighlight(JSON.stringify(data, null, 2));
+}
+
+function syntaxHighlight(json) {
+  return json
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+      let cls = 'jn';
+      if (/^"/.test(m)) { cls = /:$/.test(m) ? 'jk' : 'js'; }
+      else if (/true|false/.test(m)) { cls = 'jb'; }
+      return `<span class="${cls}">${m}</span>`;
+    });
+}
+
+function renderSummary(data, elapsed, payload) {
+  const phases = data.pipeline?.phases_executed || [];
+  const q = data.quality?.quality_prediction?.overall || 0;
+  const cost = data.cost?.total_usd || 0;
+  const strategy = data.pipeline?.strategy_used || '—';
+
+  document.getElementById('summary-card').style.display = 'block';
+  document.getElementById('summary-content').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--accent-4)">${phases.length}</div>
+        <div class="stat-label">実行フェーズ</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--accent-3)">${elapsed}s</div>
+        <div class="stat-label">処理時間</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:${q>=80?'var(--accent-4)':q>=60?'var(--accent-warn)':'var(--accent-err)'}">${q||'—'}</div>
+        <div class="stat-label">品質スコア</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--accent-2)">¥${data.cost?.total_jpy || Math.round(cost*150)}</div>
+        <div class="stat-label">コスト (JPY)</div>
+      </div>
+    </div>
+    <div class="stat-sub">
+      <span>戦略: <strong style="color:var(--accent-3)">${strategy}</strong></span>
+      <span>複雑度: <strong style="color:var(--accent-warn)">${data.pipeline?.task_complexity||'—'}</strong></span>
+      <span>バリアント: <strong style="color:var(--accent-2)">${data.pipeline?.variants_generated||0}件</strong></span>
+    </div>`;
+}
+
+// ===== HISTORY ==============================================
+function saveHistory(entry) {
+  STATE.history.unshift(entry);
+  if (STATE.history.length > 10) STATE.history = STATE.history.slice(0, 10);
+  localStorage.setItem('v4_test_history', JSON.stringify(STATE.history));
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (!STATE.history.length) {
+    list.innerHTML = '<div class="empty-state">' +
+      '<div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>' +
+      '<p>実行履歴はありません</p></div>';
+    return;
+  }
+  list.innerHTML = STATE.history.map((h, i) => {
+    const q = h.data?.quality?.quality_prediction?.overall;
+    const cost = h.data?.cost?.total_jpy || 0;
+    const ts = new Date(h.ts).toLocaleTimeString('ja-JP');
+    const sc = h.scenario ? (SCENARIOS.find(s => s.id === h.scenario)?.id || '') : '';
+    return `
+      <div class="history-item" onclick="restoreHistory(${i})">
+        <div class="hi-title">${sc ? sc + ': ' : ''}${h.payload.topic.slice(0,32)}${h.payload.topic.length>32?'…':''}</div>
+        <div class="hi-meta">
+          <span>${ts}</span>
+          <span>${h.elapsed}s</span>
+          <span>品質: ${q||'—'}</span>
+          <span>¥${cost}</span>
+          <span>${h.data?.pipeline?.strategy_used||'—'}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function restoreHistory(i) {
+  const h = STATE.history[i];
+  if (!h) return;
+  STATE.lastResult = h.data;
+  renderResult(h.data);
+  renderQuality(h.data);
+  renderCost(h.data);
+  renderChecklist(h.data, h.payload, null);
+  renderRawJson(h.data);
+  renderSummary(h.data, h.elapsed, h.payload);
+  updatePhasesFromResult(h.data, h.payload);
+  document.getElementById('elapsed-timer').textContent = h.elapsed + 's';
+  document.getElementById('f_topic').value = h.payload.topic;
+  document.getElementById('f_platform').value = h.payload.platform;
+  document.getElementById('f_audience').value = h.payload.audience || '';
+  document.getElementById('f_language').value = h.payload.language || 'ja';
+  document.getElementById('f_agot').checked = h.payload.enableAGoT;
+  document.getElementById('f_dspy').checked = h.payload.enableDSPy;
+  STATE.selectedScenario = h.scenario;
+  renderScenarios();
+  showToast('履歴を復元しました', 'ok');
+  switchTab('result');
+}
+
+function clearHistory() {
+  STATE.history = [];
+  localStorage.removeItem('v4_test_history');
+  renderHistory();
+  showToast('履歴を消去しました', 'ok');
+}
+
+// ===== TABS ==============================================
+function switchTab(name) {
+  STATE.activeTab = name;
+  const ids = ['result','quality','cost','checklist','raw'];
+  document.querySelectorAll('.tab-btn').forEach((t, i) => t.classList.toggle('active', ids[i] === name));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ===== COPY ==============================================
+function copyResult() {
+  const txt = document.getElementById('result-prompt').textContent;
+  navigator.clipboard.writeText(txt).then(() => showToast('プロンプトをコピーしました', 'ok'));
+}
+function copyRaw() {
+  if (!STATE.lastResult) return;
+  navigator.clipboard.writeText(JSON.stringify(STATE.lastResult, null, 2))
+    .then(() => showToast('JSON をコピーしました', 'ok'));
+}
+
+// ===== TOAST ==============================================
+function showToast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+
+</body>
+</html>
